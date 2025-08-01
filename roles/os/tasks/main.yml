@@ -1,0 +1,7 @@
+---
+# OS configuration tasks
+- name: Ensure basic packages are installed
+  apt:
+    name: [curl, vim]
+    state: present
+  become: true

@@ -1,0 +1,25 @@
+# Managed by Ansible
+
+frontend http-in
+    bind *:80
+    mode http
+    acl dev_domains hdr_end(host) -i dev.ankra.dev
+    acl dev_wildcard hdr_reg(host) -i ^.*\.dev\.ankra\.dev$
+    use_backend dev-nodes if dev_domains dev_wildcard
+
+# HTTPS passthrough for *.dev.ankra.dev
+frontend https-in
+    bind *:443
+    mode tcp
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    acl dev_sni req.ssl_sni -m end .dev.ankra.dev
+    use_backend dev-nodes-ssl if dev_sni
+
+backend dev-nodes
+    mode http
+    server worker-01 {{ hostvars['worker-01']['ansible_host'] }}:{{ hostvars['worker-01']['http_port'] | default(80) }} check
+
+backend dev-nodes-ssl
+    mode tcp
+    server worker-01 {{ hostvars['worker-01']['ansible_host'] }}:{{ hostvars['worker-01']['https_port'] | default(443) }} check

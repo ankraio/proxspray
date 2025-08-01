@@ -1,0 +1,28 @@
+---
+# HAProxy installation and configuration tasks
+- name: Install HAProxy
+  apt:
+    name: haproxy
+    state: present
+  become: true
+
+- name: Ensure HAProxy is started and enabled
+  service:
+    name: haproxy
+    state: started
+    enabled: true
+  become: true
+
+- name: Deploy HAProxy configuration for dev.ankra.dev
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: 0644
+  notify: Reload haproxy
+  become: true
+
+# Handler to reload HAProxy
+- name: Ensure handlers are present
+  meta: flush_handlers

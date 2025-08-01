@@ -1,0 +1,14 @@
+---
+- name: Setup HAProxy, OS, and Network
+  hosts: haproxy
+  become: true
+  roles:
+    - os
+    - network
+    - haproxy
+
+- name: Setup Proxmox Interfaces
+  hosts: proxmox
+  become: true
+  roles:
+    - proxmox_interfaces

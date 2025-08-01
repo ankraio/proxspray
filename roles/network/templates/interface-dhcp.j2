@@ -1,0 +1,4 @@
+# Managed by Ansible
+# DHCP interface config for {{ item.name }}
+auto {{ item.name }}
+iface {{ item.name }} inet dhcp

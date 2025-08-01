@@ -1,0 +1,96 @@
+
+# Ensure /etc/network/interfaces.d exists before copying static config
+- name: Ensure /etc/network/interfaces.d directory exists
+  ansible.builtin.file:
+    path: /etc/network/interfaces.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure ens19 with static IP and custom routing
+  ansible.builtin.copy:
+    dest: /etc/network/interfaces.d/ens19-static
+    owner: root
+    group: root
+    mode: '0644'
+    content: |
+      auto ens19
+      iface ens19 inet static
+          address 168.119.65.60/26
+          gateway 168.119.65.1
+
+          up   echo "100 ens19" >> /etc/iproute2/rt_tables
+          up   ip rule add from 168.119.65.60/32 lookup ens19 priority 100
+          up   ip route add default via 168.119.65.1 dev ens19 table ens19
+
+          down ip rule del from 168.119.65.60/32 lookup ens19 priority 100
+          down ip route del default via 168.119.65.1 dev ens19 table ens19
+
+- name: Ensure /etc/network/interfaces exists
+  ansible.builtin.file:
+    path: /etc/network/interfaces
+    state: touch
+    owner: root
+    group: root
+    mode: '0644'
+
+- name: Add header to /etc/network/interfaces
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    line: '# This file is managed by Ansible. See network-dhcp.yml.'
+    state: present
+    insertafter: BOF
+
+- name: Ensure /etc/network/interfaces sources interfaces.d only once
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces
+    regexp: '^source /etc/network/interfaces.d/\*'
+    line: 'source /etc/network/interfaces.d/*'
+    state: present
+    insertafter: EOF
+- name: Ensure interfaces are up
+  ansible.builtin.command: ip link set {{ item.name }} up
+  loop: "{{ dhcp_interfaces }}"
+  changed_when: false
+
+- name: Create network interfaces.d directory
+  ansible.builtin.file:
+    path: /etc/network/interfaces.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configure interfaces for DHCP
+  ansible.builtin.template:
+    src: interface-dhcp.j2
+    dest: /etc/network/interfaces.d/{{ item.name }}
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  loop: "{{ dhcp_interfaces }}"
+
+- name: Configure Cloudflare DNS resolver
+  ansible.builtin.copy:
+    dest: /etc/resolv.conf
+    content: |
+      nameserver {{ cloudflare_dns }}
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+
+- name: Optionally reload interfaces if managed by ifupdown
+  ansible.builtin.shell: |
+    for iface in {{ dhcp_interfaces | map(attribute='name') | join(' ') }}; do
+      if grep -q "^iface $iface" /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null; then
+        ifdown $iface 2>/dev/null || true
+        ifup $iface 2>/dev/null || true
+      else
+        echo "Interface $iface not managed by ifupdown, skipping reload."
+      fi
+    done
+  register: interface_reload
+  changed_when: false

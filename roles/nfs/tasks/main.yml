@@ -1,0 +1,15 @@
+---
+# NFS server installation and configuration tasks
+- name: Install NFS server packages
+  apt:
+    name:
+      - nfs-kernel-server
+    state: present
+  become: true
+
+- name: Ensure NFS service is started and enabled
+  service:
+    name: nfs-kernel-server
+    state: started
+    enabled: true
+  become: true

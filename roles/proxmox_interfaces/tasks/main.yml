@@ -1,0 +1,73 @@
+- name: Ensure Proxmox interfaces are configured
+  ansible.builtin.debug:
+    msg: "Configuring Proxmox interfaces: {{ proxmox_interfaces }}"
+  when: proxmox_interfaces is defined
+  become: true
+
+- name: Deploy INTERFACESv4 config for isc-dhcp-server
+  ansible.builtin.template:
+    src: isc-dhcp-server.j2
+    dest: /etc/default/isc-dhcp-server
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Deploy dhcpd.conf for ISC DHCP server
+  ansible.builtin.template:
+    src: dhcpd.conf.j2
+    dest: /etc/dhcp/dhcpd.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+# Proxmox interfaces and firewall configuration
+- name: Accept forwarding from internal interfaces to vmbr0
+  ansible.builtin.iptables:
+    chain: FORWARD
+    in_interface: "{{ item.name }}"
+    out_interface: "vmbr0"
+    jump: ACCEPT
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Accept established connections from vmbr0 to internal interfaces
+  ansible.builtin.iptables:
+    chain: FORWARD
+    in_interface: "vmbr0"
+    out_interface: "{{ item.name }}"
+    ctstate: RELATED,ESTABLISHED
+    jump: ACCEPT
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Enable NAT for each internal interface via vmbr0
+  ansible.builtin.iptables:
+    table: nat
+    chain: POSTROUTING
+    source: "{{ item.cidr }}"
+    out_interface: "vmbr0"
+    jump: MASQUERADE
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Save IPv4 iptables rules
+  ansible.builtin.shell: iptables-save > /etc/iptables/rules.v4
+  become: true
+
+- name: Save IPv6 iptables rules
+  ansible.builtin.shell: ip6tables-save > /etc/iptables/rules.v6
+  become: true
+
+- name: Enable netfilter-persistent
+  ansible.builtin.systemd:
+    name: netfilter-persistent
+    enabled: true
+    state: started
+  become: true
+
+- name: Restart isc-dhcp-server
+  ansible.builtin.systemd:
+    name: isc-dhcp-server
+    state: restarted
+  become: true
