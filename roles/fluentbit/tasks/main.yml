@@ -1,0 +1,23 @@
+---
+- name: Install Fluent Bit
+  ansible.builtin.apt:
+    name: fluent-bit
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Deploy Fluent Bit configuration
+  ansible.builtin.template:
+    src: fluentbit.conf.j2
+    dest: /etc/fluent-bit/fluentbit.conf
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+
+- name: Ensure Fluent Bit service is enabled and running
+  ansible.builtin.systemd:
+    name: fluent-bit
+    enabled: true
+    state: started
+  become: true

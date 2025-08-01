@@ -1,0 +1,19 @@
+# HAProxy config for dev.ankra.dev
+{% set dev_host = groups['development'][0] %}
+frontend http-in
+    bind *:{{ hostvars[dev_host]['http_port'] }}
+    default_backend dev-backend
+
+backend dev-backend
+{% for host in groups['development'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] }} check
+{% endfor %}
+
+frontend https-in
+    bind *:{{ hostvars[dev_host]['https_port'] }}
+    default_backend dev-backend-https
+
+backend dev-backend-https
+{% for host in groups['development'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] }} check
+{% endfor %}

@@ -1,0 +1,17 @@
+[SERVICE]
+    Flush        1
+    Daemon       Off
+    Log_Level    info
+    Parsers_File parsers.conf
+
+[INPUT]
+    Name         tail
+    Path         /var/log/syslog
+    Tag          syslog
+    Refresh_Interval 5
+
+[OUTPUT]
+    Name         stdout
+    Match        *
+
+# Add more INPUT/OUTPUT sections as needed for your environment

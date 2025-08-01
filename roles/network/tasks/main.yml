@@ -1,4 +1,3 @@
-
 # Ensure /etc/network/interfaces.d exists before copying static config
 - name: Ensure /etc/network/interfaces.d directory exists
   ansible.builtin.file:

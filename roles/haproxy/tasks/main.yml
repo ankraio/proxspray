@@ -15,13 +15,25 @@
 
 - name: Deploy HAProxy configuration for dev.ankra.dev
   template:
-    src: haproxy.cfg.j2
+    src: haproxy-dev.cfg.j2
     dest: /etc/haproxy/haproxy.cfg
     owner: root
     group: root
     mode: 0644
   notify: Reload haproxy
   become: true
+  when: inventory_hostname == 'loadbalancer-dev'
+
+- name: Deploy HAProxy configuration for prod.ankra.dev
+  template:
+    src: haproxy-prod.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+    owner: root
+    group: root
+    mode: 0644
+  notify: Reload haproxy
+  become: true
+  when: inventory_hostname == 'loadbalancer-prod'
 
 # Handler to reload HAProxy
 - name: Ensure handlers are present

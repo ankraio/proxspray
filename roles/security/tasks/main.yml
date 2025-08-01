@@ -1,0 +1,174 @@
+- name: Install UFW firewall
+  ansible.builtin.apt:
+    name: ufw
+    state: present
+    update_cache: yes
+  become: true
+  tags: security
+
+- name: Allow SSH through firewall
+  ansible.builtin.ufw:
+    rule: allow
+    port: 22
+    proto: tcp
+  become: true
+  tags: security
+
+- name: Allow HTTP through firewall
+  ansible.builtin.ufw:
+    rule: allow
+    port: 80
+    proto: tcp
+  become: true
+  tags: security
+
+- name: Allow HTTPS through firewall
+  ansible.builtin.ufw:
+    rule: allow
+    port: 443
+    proto: tcp
+  become: true
+  tags: security
+
+- name: Enable UFW firewall
+  ansible.builtin.ufw:
+    state: enabled
+    policy: deny
+  become: true
+  tags: security
+
+- name: Install unattended-upgrades for automatic security updates
+  ansible.builtin.apt:
+    name:
+      - unattended-upgrades
+    state: present
+    update_cache: yes
+  become: true
+  tags: security
+
+- name: Enable automatic security updates
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/20auto-upgrades
+    regexp: '^APT::Periodic::Unattended-Upgrade'
+    line: 'APT::Periodic::Unattended-Upgrade "1";'
+    create: yes
+  become: true
+  tags: security
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    name: fail2ban
+    state: present
+    update_cache: yes
+  become: true
+  tags: security
+
+- name: Ensure fail2ban is enabled and running
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+  become: true
+  tags: security
+
+- name: Ensure fail2ban jail for SSH is enabled
+  ansible.builtin.lineinfile:
+    path: /etc/fail2ban/jail.local
+    regexp: '^\\[sshd\\]'
+    line: '[sshd]\nenabled = true'
+    create: yes
+  become: true
+  tags: security
+
+- name: Harden SSH configuration
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PermitRootLogin'
+    line: 'PermitRootLogin no'
+    state: present
+  become: true
+  tags: security
+
+- name: Disable password authentication for SSH
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?PasswordAuthentication'
+    line: 'PasswordAuthentication no'
+    state: present
+  become: true
+  tags: security
+
+- name: Restart SSH service
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  become: true
+  tags: security
+
+- name: Restrict HAProxy to only listen on required ports
+  ansible.builtin.lineinfile:
+    path: /etc/haproxy/haproxy.cfg
+    regexp: '^ *bind '
+    line: '    bind *:80
+    bind *:443'
+    state: present
+  become: true
+  tags: security
+
+- name: Ensure HAProxy runs as non-root user
+  ansible.builtin.lineinfile:
+    path: /etc/haproxy/haproxy.cfg
+    regexp: '^ *user '
+    line: '    user haproxy'
+    state: present
+  become: true
+  tags: security
+
+- name: Set OS sysctl security tweaks
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes
+  become: true
+  tags: security
+
+- name: Set OS sysctl for TCP SYN cookies
+  ansible.builtin.sysctl:
+    name: net.ipv4.tcp_syncookies
+    value: '1'
+    state: present
+    reload: yes
+  become: true
+  tags: security
+
+- name: Set SSH login banner
+  ansible.builtin.copy:
+    dest: /etc/issue.net
+    content: |
+      ***********************************************************
+      *  WARNING: Unauthorized access to this system is forbidden *
+      *  and will be prosecuted by law.                          *
+      *  By accessing this system, you agree to monitoring.      *
+      ***********************************************************
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  tags: security
+
+- name: Enable SSH banner
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: '^#?Banner'
+    line: 'Banner /etc/issue.net'
+    state: present
+  become: true
+  tags: security
+
+- name: Restart SSH service (after banner)
+  ansible.builtin.systemd:
+    name: ssh
+    state: restarted
+  become: true
+  tags: security

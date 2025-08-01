@@ -21,6 +21,25 @@
     group: root
     mode: '0644'
   become: true
+
+- name: Set DHCP lease time in dhcpd.conf (release after 14 days)
+  ansible.builtin.lineinfile:
+    path: /etc/dhcp/dhcpd.conf
+    regexp: '^default-lease-time'
+    line: 'default-lease-time 1209600;'  # 14 days in seconds
+    create: yes
+  become: true
+  tags: network
+
+- name: Set max DHCP lease time in dhcpd.conf (10 years)
+  ansible.builtin.lineinfile:
+    path: /etc/dhcp/dhcpd.conf
+    regexp: '^max-lease-time'
+    line: 'max-lease-time 315360000;'  # 10 years in seconds
+    create: yes
+  become: true
+  tags: network
+
 # Proxmox interfaces and firewall configuration
 - name: Accept forwarding from internal interfaces to vmbr0
   ansible.builtin.iptables:

@@ -1,6 +1,6 @@
 [all]
-loadbalancer-dev ansible_host=172.16.10.152 public_ip_connected=true additional_ips="168.119.65.60" macs="00:50:56:01:1D:DD"
-loadbalancer-prod ansible_host=10.1.100.74 public_ip_connected=true additional_ips="168.119.65.44" macs="00:50:56:15:16:3B"
+loadbalancer-dev ansible_host=172.16.10.152 public_ip_connected=true additional_ips="168.119.65.60" macs="00:50:56:01:1D:DD" http_port=30080 https_port=30443
+loadbalancer-prod ansible_host=10.1.100.102 public_ip_connected=true additional_ips="168.119.65.44" macs="00:50:56:15:16:3B" http_port=30080 https_port=30443
 
 [all:vars]
 ansible_ssh_common_args='-o ProxyJump=root@168.119.65.46'
@@ -15,6 +15,9 @@ srv01.de.ankra.dev ansible_host=127.0.0.1 ansible_user=root
 loadbalancer-dev
 loadbalancer-prod
 
+[haproxy]
+loadbalancer-dev
+loadbalancer-prod
 
 [development]
 worker-01 ansible_host=172.16.10.140 http_port=30080 https_port=30443
@@ -23,6 +26,3 @@ worker-01 ansible_host=172.16.10.140 http_port=30080 https_port=30443
 [production]
 worker-02 ansible_host=10.1.100.102 http_port=30080 https_port=30443
 
-[haproxy]
-loadbalancer-dev
-loadbalancer-prod

@@ -1,11 +1,17 @@
 ---
-- name: Setup HAProxy, OS, and Network
-  hosts: haproxy
+- name: Setup OS, and Network
+  hosts: public_nodes
   become: true
   roles:
     - os
     - network
+
+- name: Configure HAProxy nodes
+  hosts: haproxy
+  become: true
+  roles:
     - haproxy
+    - security
 
 - name: Setup Proxmox Interfaces
   hosts: proxmox
