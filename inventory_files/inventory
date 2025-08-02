@@ -24,5 +24,7 @@ worker-01 ansible_host=172.16.10.140 http_port=30080 https_port=30443
 
 
 [production]
-worker-02 ansible_host=10.1.100.102 http_port=30080 https_port=30443
+worker-02 ansible_host=10.1.100.117 http_port=30080 https_port=30443
 
+[infrastructure]
+worker-01 ansible_host=10.1.110.103 http_port=30080 https_port=30443

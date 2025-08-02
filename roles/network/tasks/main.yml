@@ -1,4 +1,5 @@
-# Ensure /etc/network/interfaces.d exists before copying static config
+
+## Ensure /etc/network/interfaces.d exists before copying static config
 - name: Ensure /etc/network/interfaces.d directory exists
   ansible.builtin.file:
     path: /etc/network/interfaces.d
@@ -7,24 +8,22 @@
     group: root
     mode: '0755'
 
-- name: Configure ens19 with static IP and custom routing
-  ansible.builtin.copy:
-    dest: /etc/network/interfaces.d/ens19-static
-    owner: root
-    group: root
-    mode: '0644'
-    content: |
-      auto ens19
-      iface ens19 inet static
-          address 168.119.65.60/26
-          gateway 168.119.65.1
+- name: Ensure ifupdown2 is installed
+  ansible.builtin.apt:
+    name: ifupdown2
+    state: present
+    update_cache: true
+  become: true
 
-          up   echo "100 ens19" >> /etc/iproute2/rt_tables
-          up   ip rule add from 168.119.65.60/32 lookup ens19 priority 100
-          up   ip route add default via 168.119.65.1 dev ens19 table ens19
 
-          down ip rule del from 168.119.65.60/32 lookup ens19 priority 100
-          down ip route del default via 168.119.65.1 dev ens19 table ens19
+
+# Remove static config for ens19 (if present)
+- name: Remove static ens19 config if present
+  ansible.builtin.file:
+    path: /etc/network/interfaces.d/ens19-static
+    state: absent
+  when: "'ens19' in ansible_facts.interfaces"
+
 
 - name: Ensure /etc/network/interfaces exists
   ansible.builtin.file:
@@ -68,8 +67,17 @@
     owner: root
     group: root
     mode: '0644'
-    backup: true
+    # backup removed
   loop: "{{ dhcp_interfaces }}"
+  notify: Reload networking
+
+- name: Ensure ens18 does not set a DHCP gateway
+  ansible.builtin.lineinfile:
+    path: /etc/network/interfaces.d/ens18
+    line: '    post-up route del default dev ens18 || true'
+    insertafter: '^iface ens18 inet dhcp'
+    state: present
+  when: "'ens18' in dhcp_interfaces | map(attribute='name') | list"
 
 - name: Configure Cloudflare DNS resolver
   ansible.builtin.copy:
@@ -79,17 +87,11 @@
     owner: root
     group: root
     mode: '0644'
-    backup: true
+    # backup removed
 
-- name: Optionally reload interfaces if managed by ifupdown
-  ansible.builtin.shell: |
-    for iface in {{ dhcp_interfaces | map(attribute='name') | join(' ') }}; do
-      if grep -q "^iface $iface" /etc/network/interfaces /etc/network/interfaces.d/* 2>/dev/null; then
-        ifdown $iface 2>/dev/null || true
-        ifup $iface 2>/dev/null || true
-      else
-        echo "Interface $iface not managed by ifupdown, skipping reload."
-      fi
-    done
+
+# Use ifupdown2 to reload all interfaces atomically
+- name: Reload all interfaces with ifupdown2
+  ansible.builtin.command: ifreload -a
   register: interface_reload
   changed_when: false

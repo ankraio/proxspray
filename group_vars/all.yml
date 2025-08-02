@@ -1,6 +1,10 @@
+ens19_netmask: 26
+ens19_gateway: 168.119.65.1
+
 dhcp_interfaces:
   - name: ens18
   - name: ens19
+
 cloudflare_dns: 1.1.1.1
 
 proxmox_interfaces:

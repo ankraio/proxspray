@@ -1,0 +1,12 @@
+allow-hotplug ens19
+auto ens19
+iface ens19 inet static
+    address {{ ens19_address | default(hostvars[inventory_hostname]['additional_ips']) }}/{{ ens19_netmask | default('26') }}
+    gateway {{ ens19_gateway | default('168.119.65.33') }}
+
+    up   /usr/bin/ansible localhost -m lineinfile -a "path=/etc/iproute2/rt_tables line='100 ens19' state=present create=yes" || true
+    up   ip rule add from {{ ens19_address | default(hostvars[inventory_hostname]['additional_ips']) }}/32 lookup ens19 priority 100 || true
+    up   ip route add default via {{ ens19_gateway | default('168.119.65.33') }} dev ens19 table ens19 || true
+
+    down ip rule del from {{ ens19_address | default(hostvars[inventory_hostname]['additional_ips']) }}/32 lookup ens19 priority 100 || true
+    down ip route del default via {{ ens19_gateway | default('168.119.65.33') }} dev ens19 table ens19 || true

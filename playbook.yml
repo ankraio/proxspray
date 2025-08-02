@@ -3,15 +3,19 @@
   hosts: public_nodes
   become: true
   roles:
-    - os
-    - network
+    - role: os
+      tags: os
+    - role: network
+      tags: network
 
 - name: Configure HAProxy nodes
   hosts: haproxy
   become: true
   roles:
-    - haproxy
-    - security
+    - role: haproxy
+      tags: haproxy
+    - role: security
+      tags: security
 
 - name: Setup Proxmox Interfaces
   hosts: proxmox

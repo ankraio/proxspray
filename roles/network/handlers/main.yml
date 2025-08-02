@@ -1,0 +1,10 @@
+---
+- name: Reload ens19
+  ansible.builtin.shell: |
+    ifdown ens19 2>/dev/null || true
+    ifup ens19 2>/dev/null || true
+  when: "'ens19' in ansible_facts.interfaces"
+
+- name: Reload networking
+  ansible.builtin.shell: systemctl restart networking
+  become: true

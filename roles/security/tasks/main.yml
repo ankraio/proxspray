@@ -80,6 +80,15 @@
   become: true
   tags: security
 
+- name: Enable fail2ban recidive jail for repeat/portscan offenders
+  ansible.builtin.lineinfile:
+    path: /etc/fail2ban/jail.local
+    regexp: '^\[recidive\]'
+    line: '[recidive]\nenabled = true'
+    create: yes
+  become: true
+  tags: security
+
 - name: Harden SSH configuration
   ansible.builtin.lineinfile:
     path: /etc/ssh/sshd_config
@@ -101,6 +110,13 @@
 - name: Restart SSH service
   ansible.builtin.systemd:
     name: ssh
+    state: restarted
+  become: true
+  tags: security
+
+- name: Restart fail2ban to apply recidive jail
+  ansible.builtin.systemd:
+    name: fail2ban
     state: restarted
   become: true
   tags: security

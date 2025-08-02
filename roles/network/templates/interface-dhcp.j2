@@ -1,4 +1,7 @@
+
 # Managed by Ansible
 # DHCP interface config for {{ item.name }}
 auto {{ item.name }}
 iface {{ item.name }} inet dhcp
+{% if item.name in ['ens18', 'ens20'] %}    post-up route del default dev {{ item.name }} || true
+{% endif %}

@@ -1,19 +1,78 @@
+global
+    log /dev/log    local0
+    log /dev/log    local1 notice
+    chroot /var/lib/haproxy
+    stats socket /run/haproxy/admin.sock mode 660 level admin
+    stats timeout 30s
+    user haproxy
+    group haproxy
+    daemon
+
+defaults
+    log     global
+    mode    http
+    option  httplog
+    option  dontlognull
+    timeout connect 5000
+    timeout client  50000
+    timeout server  50000
+    errorfile 400 /etc/haproxy/errors/400.http
+    errorfile 403 /etc/haproxy/errors/403.http
+    errorfile 408 /etc/haproxy/errors/408.http
+    errorfile 500 /etc/haproxy/errors/500.http
+    errorfile 502 /etc/haproxy/errors/502.http
+    errorfile 503 /etc/haproxy/errors/503.http
+    errorfile 504 /etc/haproxy/errors/504.http
+
 # HAProxy config for dev.ankra.dev
-{% set dev_host = groups['development'][0] %}
+
+
 frontend http-in
-    bind *:{{ hostvars[dev_host]['http_port'] }}
+    bind *:80
+    acl is_infra hdr_reg(host) -i ^[a-z0-9-]+\.infra\.de\.ankra\.dev$
+    use_backend infra-backend if is_infra
     default_backend dev-backend
+
 
 backend dev-backend
 {% for host in groups['development'] %}
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] }} check
 {% endfor %}
 
+backend infra-backend
+{% for host in groups['infrastructure'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] | default('80') }} check
+{% endfor %}
+
+
+
+# TLS Passthrough frontend for HTTPS
 frontend https-in
-    bind *:{{ hostvars[dev_host]['https_port'] }}
+    bind *:443
+    mode tcp
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    acl is_infra_sni req.ssl_sni -m reg -i ^[a-z0-9-]+\.infra\.de\.ankra\.dev$
+    use_backend infra-backend-https if is_infra_sni
     default_backend dev-backend-https
 
+# TLS Passthrough backends
 backend dev-backend-https
+    mode tcp
 {% for host in groups['development'] %}
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] }} check
 {% endfor %}
+
+backend infra-backend-https
+    mode tcp
+{% for host in groups['infrastructure'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] | default('443') }} check
+{% endfor %}
+
+listen stats
+    bind *:8404
+    mode http
+    stats enable
+    stats uri /stats
+    stats refresh 10s
+    stats auth admin:admin

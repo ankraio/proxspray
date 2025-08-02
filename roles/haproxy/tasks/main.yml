@@ -1,16 +1,13 @@
 ---
 # HAProxy installation and configuration tasks
+- name: Debug inventory_hostname and ansible_hostname
+  debug:
+    msg: "Deploying HAProxy config on inventory_hostname={{ inventory_hostname }}, ansible_hostname={{ ansible_hostname }}"
+
 - name: Install HAProxy
   apt:
     name: haproxy
     state: present
-  become: true
-
-- name: Ensure HAProxy is started and enabled
-  service:
-    name: haproxy
-    state: started
-    enabled: true
   become: true
 
 - name: Deploy HAProxy configuration for dev.ankra.dev
@@ -35,6 +32,12 @@
   become: true
   when: inventory_hostname == 'loadbalancer-prod'
 
-# Handler to reload HAProxy
 - name: Ensure handlers are present
   meta: flush_handlers
+
+- name: Ensure HAProxy is started and enabled
+  service:
+    name: haproxy
+    state: started
+    enabled: true
+  become: true
