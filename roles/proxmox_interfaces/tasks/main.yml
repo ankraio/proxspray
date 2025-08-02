@@ -70,6 +70,37 @@
   loop: "{{ proxmox_interfaces }}"
   become: true
 
+- name: Allow TCP port 6789 on proxmox_interfaces only
+  ansible.builtin.iptables:
+    chain: INPUT
+    in_interface: "{{ item.name }}"
+    protocol: tcp
+    destination_port: 6789
+    jump: ACCEPT
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Allow Ceph MON TCP ports 6789 and 3300 on proxmox_interfaces only
+  ansible.builtin.iptables:
+    chain: INPUT
+    in_interface: "{{ item.name }}"
+    protocol: tcp
+    destination_port: "{{ port }}"
+    jump: ACCEPT
+  loop: "{{ proxmox_interfaces | product([6789, 3300]) | list }}"
+  loop_control:
+    loop_var: pair
+  vars:
+    item: "{{ pair[0] }}"
+    port: "{{ pair[1] }}"
+  become: true
+
+- name: Allow Ceph OSD TCP port range 6800-7568 on proxmox_interfaces only
+  ansible.builtin.shell: |
+    iptables -A INPUT -i {{ item.name }} -p tcp --dport 6800:7568 -j ACCEPT
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
 - name: Save IPv4 iptables rules
   ansible.builtin.shell: iptables-save > /etc/iptables/rules.v4
   become: true
