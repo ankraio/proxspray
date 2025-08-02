@@ -17,4 +17,7 @@
   hosts: proxmox
   become: true
   roles:
-    - proxmox_interfaces
+    - role: proxmox_interfaces
+      tags: proxmox_interfaces
+    - role: proxmox_ceph
+      tags: proxmox_ceph

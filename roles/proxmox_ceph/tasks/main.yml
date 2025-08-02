@@ -1,0 +1,38 @@
+---
+- name: Create Ceph pools
+  ansible.builtin.command: >
+    ceph osd pool create {{ item.name }} {{ item.pg_num | default(128) }}
+  args:
+    creates: "/var/lib/ceph/osd/ceph-*/current/{{ item.name }}"
+  loop: "{{ ceph_pools }}"
+  become: true
+  tags: ceph
+
+- name: Set Ceph pool size and min_size
+  ansible.builtin.command: >
+    ceph osd pool set {{ item.name }} size {{ item.size }}
+  loop: "{{ ceph_pools }}"
+  become: true
+  tags: ceph
+
+- name: Set Ceph pool min_size
+  ansible.builtin.command: >
+    ceph osd pool set {{ item.name }} min_size {{ item.min_size }}
+  loop: "{{ ceph_pools }}"
+  become: true
+  tags: ceph
+
+- name: Create Ceph user for each pool
+  ansible.builtin.command: >
+    ceph auth get-or-create client.{{ item.name }} mon 'allow r' osd 'allow rwx pool={{ item.name }}'
+  loop: "{{ ceph_pools }}"
+  become: true
+  tags: ceph
+
+- name: Fetch Ceph user keyring for each pool
+  ansible.builtin.command: >
+    ceph auth get-key client.{{ item.name }}
+  register: ceph_user_keys
+  loop: "{{ ceph_pools }}"
+  become: true
+  tags: ceph

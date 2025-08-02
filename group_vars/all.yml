@@ -13,3 +13,14 @@ proxmox_interfaces:
 ansible_ssh_common_args: '-o ProxyJump=root@168.119.65.46'
 ansible_user: debian
 ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+ceph_pools:
+  - name: infra_k8s_data
+    size: 2
+    min_size: 1
+  - name: prod_k8s_data
+    size: 2
+    min_size: 1
+  - name: dev_k8s_data
+    size: 2
+    min_size: 1
