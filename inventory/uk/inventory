@@ -1,0 +1,23 @@
+[all]
+srv01.uk.ankra.dev ansible_host=127.0.0.1 ansible_user=root
+
+; loadbalancer ansible_host=172.16.20.152 public_ip_connected=true additional_ips="51.195.238.228 " macs="00:50:56:01:1D:DD" http_port=30080 https_port=30443
+; worker-01 ansible_host=172.16.20.140 http_port=30080 https_port=30443
+
+[all:vars]
+ansible_ssh_common_args='-o ProxyJump=root@51.89.192.98'
+ansible_user=debian
+ansible_ssh_private_key_file=~/.ssh/id_ed25519
+
+
+[proxmox]
+srv01.uk.ankra.dev
+
+[public_nodes]
+; loadbalancer
+
+[haproxy]
+; loadbalancer
+
+[development]
+; worker-01

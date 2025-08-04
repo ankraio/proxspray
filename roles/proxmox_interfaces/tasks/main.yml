@@ -4,6 +4,14 @@
   when: proxmox_interfaces is defined
   become: true
 
+- name: Install ISC DHCP server package
+  ansible.builtin.apt:
+    name:
+      - isc-dhcp-server
+    update_cache: yes
+    state: present
+  become: true
+
 - name: Deploy INTERFACESv4 config for isc-dhcp-server
   ansible.builtin.template:
     src: isc-dhcp-server.j2

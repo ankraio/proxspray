@@ -1,0 +1,20 @@
+ens19_netmask: 26
+ens19_gateway: 51.195.238.228
+
+dhcp_interfaces:
+  - name: ens18
+  - name: ens19
+
+cloudflare_dns: 1.1.1.1
+
+proxmox_interfaces:
+  - name: vmbr1
+    cidr: 172.16.20.1/24
+ansible_ssh_common_args: '-o ProxyJump=root@51.89.192.98'
+ansible_user: debian
+ansible_ssh_private_key_file: ~/.ssh/id_ed25519
+
+ceph_pools:
+  - name: infra_k8s_data
+    size: 2
+    min_size: 1

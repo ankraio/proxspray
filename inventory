@@ -1,9 +1,0 @@
-[all]
-node1 ansible_host=168.119.65.60 mac=00:50:56:01:1D:DD
-node2 ansible_host=168.119.65.44 mac=00:50:56:15:16:3B
-[node3 ansible_host=172.16.10.152 public_ip_connected=true]
-
-[public_nodes]
-node1
-node2
-[node3]

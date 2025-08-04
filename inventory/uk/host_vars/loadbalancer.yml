@@ -1,0 +1,4 @@
+dhcp_interfaces:
+  - name: ens18
+  - name: ens19
+  - name: ens20
