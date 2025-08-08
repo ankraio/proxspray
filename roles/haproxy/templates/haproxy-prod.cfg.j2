@@ -28,6 +28,8 @@ defaults
 
 frontend http-in
     bind *:80
+    acl is_infra hdr_reg(host) -i ^[a-z0-9-]+\.infra\.prod\.ankra\.app$
+    use_backend infra-backend if is_infra
     default_backend prod-backend
 
 backend prod-backend
@@ -35,13 +37,45 @@ backend prod-backend
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] }} check
 {% endfor %}
 
+backend infra-backend
+{% for host in groups['infrastructure'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] | default('80') }} check
+{% endfor %}
+
+# TLS Passthrough frontend for HTTPS
 frontend https-in
     bind *:443
+    mode tcp
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    acl is_infra_sni req.ssl_sni -m reg -i ^[a-z0-9-]+\.infra\.prod\.ankra\.app$
+    use_backend infra-backend-https if is_infra_sni
     default_backend prod-backend-https
 
+# TLS Passthrough backends
 backend prod-backend-https
+    mode tcp
 {% for host in groups['production'] %}
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] }} check
+{% endfor %}
+
+backend infra-backend-https
+    mode tcp
+{% for host in groups['infrastructure'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] | default('443') }} check
+{% endfor %}
+
+# NATS TCP passthrough frontend on port 4222
+frontend nats-tcp-in
+    bind *:4222
+    mode tcp
+    default_backend nats-tcp-backend
+
+# NATS TCP backend for production (port 4222)
+backend nats-tcp-backend
+    mode tcp
+{% for host in groups['production'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['nats_port'] }}
 {% endfor %}
 
 listen stats

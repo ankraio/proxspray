@@ -69,6 +69,19 @@ backend infra-backend-https
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] | default('443') }} check
 {% endfor %}
 
+# NATS TCP passthrough frontend on port 4222
+frontend nats-tcp-in
+    bind *:4222
+    mode tcp
+    default_backend nats-tcp-backend
+
+# NATS TCP backend for development (port 4222)
+backend nats-tcp-backend
+    mode tcp
+{% for host in groups['development'] %}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['nats_port'] }} check
+{% endfor %}
+
 listen stats
     bind *:8404
     mode http
@@ -76,3 +89,7 @@ listen stats
     stats uri /stats
     stats refresh 10s
     stats auth admin:admin
+    stats show-legends
+    stats show-node
+    stats show-desc "HAProxy Dev Stats"
+    stats admin if TRUE
