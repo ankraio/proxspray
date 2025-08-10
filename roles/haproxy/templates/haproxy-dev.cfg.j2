@@ -29,8 +29,23 @@ defaults
 
 frontend http-in
     bind *:80
-    acl is_infra hdr_reg(host) -i ^[a-z0-9-]+\.infra\.de\.ankra\.dev$
-    use_backend infra-backend if is_infra
+    # route infra subdomain and cloud domains to infra backend
+    acl host_infra hdr_end(host) -i .infra.ankra.dev
+    acl host_cloud hdr_end(host) -i .ankra.cloud
+    use_backend infra-backend if host_infra or host_cloud
+
+    # route dev subdomain to dev backend
+    acl host_dev_sub hdr_end(host) -i .dev.ankra.dev
+    use_backend dev-backend if host_dev_sub
+
+    # custom domain ingress mappings
+    {% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+    {% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+    acl host_{{ entry.host | replace('.', '_') }} hdr(host) -i {{ entry.host }}
+    use_backend dev-backend if host_{{ entry.host | replace('.', '_') }}
+    {% endfor %}
+    {% endif %}
+
     default_backend dev-backend
 
 
@@ -52,8 +67,23 @@ frontend https-in
     mode tcp
     tcp-request inspect-delay 5s
     tcp-request content accept if { req.ssl_hello_type 1 }
-    acl is_infra_sni req.ssl_sni -m reg -i ^[a-z0-9-]+\.infra\.de\.ankra\.dev$
-    use_backend infra-backend-https if is_infra_sni
+    # route infra subdomain and cloud domains to infra backend
+    acl sni_infra req.ssl_sni -i -m end .infra.ankra.dev
+    acl sni_cloud req.ssl_sni -i -m end .ankra.cloud
+    use_backend infra-backend-https if sni_infra or sni_cloud
+
+    # route dev subdomain to dev backend
+    acl sni_dev_sub req.ssl_sni -i -m end .dev.ankra.dev
+    use_backend dev-backend-https if sni_dev_sub
+
+    # custom domain ingress mappings (HTTPS)
+    {% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+    {% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+    acl sni_{{ entry.host | replace('.', '_') }} req.ssl_sni -i -m end {{ entry.host }}
+    use_backend dev-backend-https if sni_{{ entry.host | replace('.', '_') }}
+    {% endfor %}
+    {% endif %}
+
     default_backend dev-backend-https
 
 # TLS Passthrough backends
@@ -73,6 +103,14 @@ backend infra-backend-https
 frontend nats-tcp-in
     bind *:4222
     mode tcp
+    # inspect TLS ClientHello for SNI
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    # route based on custom nats_domain if defined
+    {% if hostvars[inventory_hostname]['nats_domain'] is defined %}
+    acl nats_sni req.ssl_sni -i {{ hostvars[inventory_hostname]['nats_domain'] }}
+    use_backend nats-tcp-backend if nats_sni
+    {% endif %}
     default_backend nats-tcp-backend
 
 # NATS TCP backend for development (port 4222)

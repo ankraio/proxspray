@@ -34,4 +34,9 @@ development-k8s-worker-3 ansible_host=172.16.10.146 http_port=30080 https_port=3
 worker-02 ansible_host=10.1.100.117 http_port=30080 https_port=30443 nats_port=30422
 
 [infrastructure]
-worker-01 ansible_host=10.1.110.103 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-controller-1 ansible_host=10.1.110.104 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-controller-2 ansible_host=10.1.110.107 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-controller-3 ansible_host=10.1.110.108 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-worker-1 ansible_host=10.1.110.114 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-worker-2 ansible_host=10.1.110.116 http_port=30080 https_port=30443 nats_port=30422
+infrastructure-k8s-worker-3 ansible_host=10.1.110.115 http_port=30080 https_port=30443 nats_port=30422

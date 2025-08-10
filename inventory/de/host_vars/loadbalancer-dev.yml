@@ -4,3 +4,7 @@ dhcp_interfaces:
   - name: ens20
 
 nats_domain: command.platform.ankra.dev
+
+# custom_domain_ingress:
+#   - host: docs-dev.ankra.io
+#     service: development
