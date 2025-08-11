@@ -111,7 +111,7 @@ backend nats-tcp-backend
 {% endfor %}
 
 listen stats
-    bind *:8404
+    bind {{ hostvars[inventory_hostname]['ansible_host'] }}:8404
     mode http
     stats enable
     stats uri /stats
