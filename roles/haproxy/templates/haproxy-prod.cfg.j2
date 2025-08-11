@@ -28,18 +28,31 @@ defaults
 
 frontend http-in
     bind *:80
-    acl is_infra hdr_reg(host) -i ^[a-z0-9-]+\.infra\.prod\.ankra\.app$
-    use_backend infra-backend if is_infra
-    default_backend prod-backend
+    # custom domain ingress mappings
+    {% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+    {% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+    acl host_{{ loop.index }} hdr_reg(host) -i ^{{ entry.host | replace('*', '.*') }}$
+    use_backend {{ entry.service }}-backend if host_{{ loop.index }}
+    {% endfor %}
+    {% endif %}
 
-backend prod-backend
-{% for host in groups['production'] %}
+    default_backend production-backend
+
+# Dynamic backends based on custom_domain_ingress services + default production
+{% set all_services = ['production'] %}
+{% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+{% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+  {% if entry.service not in all_services %}
+    {% set _ = all_services.append(entry.service) %}
+  {% endif %}
+{% endfor %}
+{% endif %}
+{% for service in all_services %}
+backend {{ service }}-backend
+{% for host in groups[service] %}
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] }} check
 {% endfor %}
 
-backend infra-backend
-{% for host in groups['infrastructure'] %}
-    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['http_port'] | default('80') }} check
 {% endfor %}
 
 # TLS Passthrough frontend for HTTPS
@@ -48,34 +61,53 @@ frontend https-in
     mode tcp
     tcp-request inspect-delay 5s
     tcp-request content accept if { req.ssl_hello_type 1 }
-    acl is_infra_sni req.ssl_sni -m reg -i ^[a-z0-9-]+\.infra\.prod\.ankra\.app$
-    use_backend infra-backend-https if is_infra_sni
-    default_backend prod-backend-https
+    # custom domain ingress mappings (HTTPS)
+    {% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+    {% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+    acl sni_{{ loop.index }} req.ssl_sni -i -m reg ^{{ entry.host | replace('*', '.*') }}$
+    use_backend {{ entry.service }}-backend-https if sni_{{ loop.index }}
+    {% endfor %}
+    {% endif %}
 
-# TLS Passthrough backends
-backend prod-backend-https
+    default_backend production-backend-https
+
+# Dynamic HTTPS backends based on custom_domain_ingress services + default production
+{% set all_services = ['production'] %}
+{% if hostvars[inventory_hostname]['custom_domain_ingress'] is defined %}
+{% for entry in hostvars[inventory_hostname]['custom_domain_ingress'] %}
+  {% if entry.service not in all_services %}
+    {% set _ = all_services.append(entry.service) %}
+  {% endif %}
+{% endfor %}
+{% endif %}
+{% for service in all_services %}
+backend {{ service }}-backend-https
     mode tcp
-{% for host in groups['production'] %}
+{% for host in groups[service] %}
     server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] }} check
 {% endfor %}
 
-backend infra-backend-https
-    mode tcp
-{% for host in groups['infrastructure'] %}
-    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['https_port'] | default('443') }} check
 {% endfor %}
 
 # NATS TCP passthrough frontend on port 4222
 frontend nats-tcp-in
     bind *:4222
     mode tcp
+    # inspect TLS ClientHello for SNI
+    tcp-request inspect-delay 5s
+    tcp-request content accept if { req.ssl_hello_type 1 }
+    # route based on custom nats_domain if defined
+    {% if hostvars[inventory_hostname]['nats_domain'] is defined %}
+    acl nats_sni req.ssl_sni -i {{ hostvars[inventory_hostname]['nats_domain'] }}
+    use_backend nats-tcp-backend if nats_sni
+    {% endif %}
     default_backend nats-tcp-backend
 
 # NATS TCP backend for production (port 4222)
 backend nats-tcp-backend
     mode tcp
 {% for host in groups['production'] %}
-    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['nats_port'] }}
+    server {{ host }} {{ hostvars[host]['ansible_host'] }}:{{ hostvars[host]['nats_port'] }} check
 {% endfor %}
 
 listen stats
@@ -85,3 +117,7 @@ listen stats
     stats uri /stats
     stats refresh 10s
     stats auth admin:admin
+    stats show-legends
+    stats show-node
+    stats show-desc "HAProxy Prod Stats"
+    stats admin if TRUE

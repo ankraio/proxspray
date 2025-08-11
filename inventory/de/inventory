@@ -31,7 +31,15 @@ development-k8s-worker-2 ansible_host=172.16.10.149 http_port=30080 https_port=3
 development-k8s-worker-3 ansible_host=172.16.10.146 http_port=30080 https_port=30443 nats_port=30422
 
 [production]
-worker-02 ansible_host=10.1.100.117 http_port=30080 https_port=30443 nats_port=30422
+production-database-1 ansible_host=10.1.100.112 http_port=30080 https_port=30443 nats_port=30422
+production-database-2 ansible_host=10.1.100.116 http_port=30080 https_port=30443 nats_port=30422
+production-database-3 ansible_host=10.1.100.113 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-controller-1 ansible_host=10.1.100.114 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-controller-2 ansible_host=10.1.100.111 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-controller-3 ansible_host=10.1.100.119 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-worker-1 ansible_host=10.1.100.118 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-worker-2 ansible_host=10.1.100.117 http_port=30080 https_port=30443 nats_port=30422
+production-k8s-worker-3 ansible_host=10.1.100.120 http_port=30080 https_port=30443 nats_port=30422
 
 [infrastructure]
 infrastructure-k8s-controller-1 ansible_host=10.1.110.104 http_port=30080 https_port=30443 nats_port=30422
