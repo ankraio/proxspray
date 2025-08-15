@@ -1,0 +1,6 @@
+---
+# Default variables for proxmox role
+proxmox_version: "9.0.3"
+ceph_version: "squid"  # Latest stable Ceph version (19.x)
+proxmox_enterprise_repo_enabled: false
+ceph_enterprise_repo_enabled: false

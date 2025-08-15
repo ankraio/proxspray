@@ -18,6 +18,9 @@ ansible_ssh_common_args: '-o ProxyJump=root@168.119.65.46'
 ansible_user: debian
 ansible_ssh_private_key_file: ~/.ssh/id_ed25519
 
+proxmox_version: "8.4.1"
+ceph_version: "squid"
+
 ceph_pools:
   - name: infra_k8s_data
     size: 2
@@ -28,3 +31,22 @@ ceph_pools:
   - name: dev_k8s_data
     size: 2
     min_size: 1
+
+# Ankra users configuration
+ankra_users:
+  - name: mark
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH0lTjp4WvJ4tA60xLQPpNXpAo3lKymXHGzvk3UpQOUp mark@ankra"
+    sudo: true
+    shell: /bin/bash
+    groups: []
+  - name: mattias
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBbr+bc5f+n5kIIm++SkvmZ2LX2Coff+TO+DC69XWbfi mattias@ankra"
+    sudo: true
+    shell: /bin/bash
+    groups: []
+  # Add more users as needed:
+  # - name: developer
+  #   public_key: "ssh-rsa AAAA..."
+  #   sudo: false
+  #   shell: /bin/bash
+  #   groups: [docker]

@@ -1,0 +1,162 @@
+---
+- name: Remove duplicate/existing repository files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/pve-community.list
+    - /etc/apt/sources.list.d/pve-no-subscription.list
+    - /etc/apt/sources.list.d/ceph-no-subscription.list
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Disable Proxmox Enterprise repository (.list format)
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/pve-enterprise.list
+    regexp: '^deb'
+    replace: '#deb'
+  when: not proxmox_enterprise_repo_enabled
+  failed_when: false  # File might not exist
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Disable Proxmox Enterprise repository (.sources format)
+  ansible.builtin.command:
+    cmd: mv /etc/apt/sources.list.d/pve-enterprise.sources /etc/apt/sources.list.d/pve-enterprise.sources.disabled
+  args:
+    creates: /etc/apt/sources.list.d/pve-enterprise.sources.disabled
+    removes: /etc/apt/sources.list.d/pve-enterprise.sources
+  when: not proxmox_enterprise_repo_enabled
+  failed_when: false  # File might not exist
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Disable Ceph Enterprise repository (.list format)
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/ceph.list
+    regexp: '^deb'
+    replace: '#deb'
+  when: not ceph_enterprise_repo_enabled
+  failed_when: false  # File might not exist
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Disable Ceph Enterprise repository (.sources format)
+  ansible.builtin.command:
+    cmd: mv /etc/apt/sources.list.d/ceph.sources /etc/apt/sources.list.d/ceph.sources.disabled
+  args:
+    creates: /etc/apt/sources.list.d/ceph.sources.disabled
+    removes: /etc/apt/sources.list.d/ceph.sources
+  when: not ceph_enterprise_repo_enabled
+  failed_when: false  # File might not exist
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Add Proxmox VE No-Subscription repository
+  ansible.builtin.template:
+    src: pve-no-subscription.list.j2
+    dest: /etc/apt/sources.list.d/pve-no-subscription.list
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: update apt cache
+  tags:
+    - proxmox
+    - repositories
+
+- name: Add Ceph No-Subscription repository
+  ansible.builtin.template:
+    src: ceph-no-subscription.list.j2
+    dest: /etc/apt/sources.list.d/ceph-no-subscription.list
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: update apt cache
+  tags:
+    - proxmox
+    - repositories
+    - ceph
+
+- name: Use existing Proxmox GPG keyring for no-subscription repos
+  ansible.builtin.copy:
+    src: /usr/share/keyrings/proxmox-archive-keyring.gpg
+    dest: /usr/share/keyrings/proxmox-no-subscription.gpg
+    remote_src: true
+    mode: '0644'
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: true
+  tags:
+    - proxmox
+    - repositories
+
+- name: Check if running on Proxmox
+  ansible.builtin.stat:
+    path: /usr/bin/pvesh
+  register: proxmox_check
+
+- name: Install latest Proxmox VE packages
+  ansible.builtin.apt:
+    name:
+      - proxmox-ve
+      - postfix
+      - open-iscsi
+    state: latest
+    update_cache: yes
+  when: proxmox_check.stat.exists
+  become: true
+  tags:
+    - proxmox
+    - packages
+
+- name: Install latest Ceph packages
+  ansible.builtin.apt:
+    name:
+      - ceph
+      - ceph-common
+      - ceph-fuse
+      - ceph-mds
+      - ceph-mgr
+      - ceph-mon
+      - ceph-osd
+      - python3-ceph-argparse
+      - python3-ceph-common
+      - python3-cephfs
+      - python3-rados
+      - python3-rbd
+    state: latest
+    update_cache: yes
+  when: proxmox_check.stat.exists
+  become: true
+  tags:
+    - proxmox
+    - ceph
+    - packages
+
+- name: Remove old kernels to free space
+  ansible.builtin.shell: |
+    apt autoremove -y
+    apt autoclean
+  become: true
+  tags:
+    - proxmox
+    - cleanup

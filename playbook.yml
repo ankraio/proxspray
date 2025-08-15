@@ -1,5 +1,5 @@
 ---
-- name: Setup OS, and Network
+- name: Setup OS, Network, and Users
   hosts: public_nodes
   become: true
   roles:
@@ -7,6 +7,8 @@
       tags: os
     - role: network
       tags: network
+    - role: ankra
+      tags: ankra
 
 - name: Configure HAProxy nodes
   hosts: haproxy
@@ -16,12 +18,39 @@
       tags: haproxy
     - role: security
       tags: security
+    - role: ankra
+      tags: ankra
 
 - name: Setup Proxmox Interfaces
   hosts: proxmox
   become: true
   roles:
+    - role: proxmox
+      tags: proxmox
     - role: proxmox_interfaces
       tags: proxmox_interfaces
     - role: proxmox_ceph
       tags: proxmox_ceph
+    - role: ankra
+      tags: ankra
+
+- name: Setup Users on Development Environment
+  hosts: development
+  become: true
+  roles:
+    - role: ankra
+      tags: ankra
+
+- name: Setup Users on Production Environment
+  hosts: production
+  become: true
+  roles:
+    - role: ankra
+      tags: ankra
+
+- name: Setup Users on Infrastructure Environment
+  hosts: infrastructure
+  become: true
+  roles:
+    - role: ankra
+      tags: ankra

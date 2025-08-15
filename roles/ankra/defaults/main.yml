@@ -1,0 +1,10 @@
+---
+# Default variables for ankra role
+ankra_users: []
+# Example structure:
+# ankra_users:
+#   - name: username
+#     public_key: "ssh-rsa AAAA..."
+#     sudo: true
+#     shell: /bin/bash
+#     groups: []

@@ -14,7 +14,24 @@ ansible_ssh_common_args: '-o ProxyJump=root@51.89.192.98'
 ansible_user: debian
 ansible_ssh_private_key_file: ~/.ssh/id_ed25519
 
+# Proxmox configuration for UK (latest)
+proxmox_version: "9.0.3"
+ceph_version: "squid"  # Latest Ceph version for newer Proxmox
+
 ceph_pools:
   - name: infra_k8s_data
     size: 2
     min_size: 1
+
+# Ankra users configuration
+ankra_users:
+  - name: mark
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH0lTjp4WvJ4tA60xLQPpNXpAo3lKymXHGzvk3UpQOUp mark@ankra"
+    sudo: true
+    shell: /bin/bash
+    groups: []
+  - name: mattias
+    public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBbr+bc5f+n5kIIm++SkvmZ2LX2Coff+TO+DC69XWbfi mattias@ankra"
+    sudo: true
+    shell: /bin/bash
+    groups: []
