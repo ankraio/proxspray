@@ -20,15 +20,15 @@ loadbalancer-dev
 loadbalancer-prod
 
 [development]
-development-database-1 ansible_host=172.16.10.150 http_port=30080 https_port=30443 nats_port=30422
-development-database-2 ansible_host=172.16.10.153 http_port=30080 https_port=30443 nats_port=30422
-development-database-3 ansible_host=172.16.10.154 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-controller-1 ansible_host=172.16.10.147 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-controller-2 ansible_host=172.16.10.151 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-controller-3 ansible_host=172.16.10.148 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-worker-1 ansible_host=172.16.10.140 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-worker-2 ansible_host=172.16.10.149 http_port=30080 https_port=30443 nats_port=30422
-development-k8s-worker-3 ansible_host=172.16.10.146 http_port=30080 https_port=30443 nats_port=30422
+development-database-1 ansible_host=172.16.10.161 http_port=30080 https_port=30443 nats_port=30422
+development-database-2 ansible_host=172.16.10.162 http_port=30080 https_port=30443 nats_port=30422
+development-database-3 ansible_host=172.16.10.160 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-controller-1 ansible_host=172.16.10.166 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-controller-2 ansible_host=172.16.10.164 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-controller-3 ansible_host=172.16.10.163 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-worker-1 ansible_host=172.16.10.165 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-worker-2 ansible_host=172.16.10.158 http_port=30080 https_port=30443 nats_port=30422
+development-k8s-worker-3 ansible_host=172.16.10.159 http_port=30080 https_port=30443 nats_port=30422
 
 [production]
 production-database-1 ansible_host=10.1.100.112 http_port=30080 https_port=30443 nats_port=30422

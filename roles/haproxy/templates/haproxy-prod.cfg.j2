@@ -93,13 +93,8 @@ backend {{ service }}-backend-https
 frontend nats-tcp-in
     bind *:4222
     mode tcp
-    # inspect TLS ClientHello for SNI
-    tcp-request inspect-delay 5s
-    tcp-request content accept if { req.ssl_hello_type 1 }
-    # route based on custom nats_domain if defined
     {% if hostvars[inventory_hostname]['nats_domain'] is defined %}
-    acl nats_sni req.ssl_sni -i {{ hostvars[inventory_hostname]['nats_domain'] }}
-    use_backend nats-tcp-backend if nats_sni
+    use_backend nats-tcp-backend
     {% endif %}
     default_backend nats-tcp-backend
 

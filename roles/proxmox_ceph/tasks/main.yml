@@ -22,9 +22,9 @@
   become: true
   tags: ceph
 
-- name: Create Ceph user for each pool
+- name: Create Ceph user for each pool with RBD profile
   ansible.builtin.command: >
-    ceph auth get-or-create client.{{ item.name }} mon 'allow r' osd 'allow rwx pool={{ item.name }}'
+    ceph auth get-or-create client.{{ item.name }} mon 'profile rbd' mgr 'allow rw' osd 'profile rbd pool={{ item.name }}'
   loop: "{{ ceph_pools }}"
   become: true
   tags: ceph
