@@ -75,7 +75,7 @@ ProxSpray implements a robust three-tier network architecture designed for produ
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-org/proxspray.git
+git clone https://github.com/ankraio/proxspray.git
 cd proxspray
 ```
 
