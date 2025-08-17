@@ -9,7 +9,7 @@
 
 ### Network Segmentation
 - **VLAN Support**: Configurable VLAN tagging for secure cluster communication
-- **Traffic Isolation**: Separate networks for management, cluster, and VM traffic  
+- **Traffic Isolation**: Separate networks for management, cluster, and VM traffic
 - **Firewall Integration**: Automated firewall rules for network security
 - **DHCP Management**: Automated DHCP configuration for VM networks
 
@@ -66,7 +66,7 @@ ProxSpray implements a robust three-tier network architecture designed for produ
 ### Key Design Principles
 
 - **Network Isolation**: VLAN segmentation ensures secure cluster communication
-- **High Availability**: Multi-node design with automatic failover capabilities  
+- **High Availability**: Multi-node design with automatic failover capabilities
 - **Scalability**: Modular role-based architecture supports easy expansion
 - **Security**: Defense-in-depth approach with multiple security layers
 
@@ -93,7 +93,7 @@ Edit `inventory/my-cluster/inventory`:
 ```ini
 [proxmox]
 pve01.example.com ansible_host=192.168.1.101
-pve02.example.com ansible_host=192.168.1.102  
+pve02.example.com ansible_host=192.168.1.102
 pve03.example.com ansible_host=192.168.1.103
 ```
 
@@ -138,13 +138,13 @@ ansible -i inventory/my-cluster/inventory proxmox -m shell -a "ceph health"
 
 #### `admin` - User & Access Management
 - **Purpose**: Centralized user account management across all infrastructure
-- **Features**: 
+- **Features**:
   - Creates admin users with SSH key authentication
   - Configures sudo access and shell preferences
   - Manages user groups and permissions
 - **Key Files**: User creation, SSH key deployment, sudo configuration
 
-#### `os` - Operating System Configuration  
+#### `os` - Operating System Configuration
 - **Purpose**: Base OS hardening and package management
 - **Features**:
   - Installs essential system packages (curl, vim, etc.)
@@ -212,7 +212,7 @@ ansible -i inventory/my-cluster/inventory proxmox -m shell -a "ceph health"
   - Service isolation and permission management
 
 #### `node_exporter` - Monitoring Integration
-- **Purpose**: Prometheus-based monitoring and metrics collection  
+- **Purpose**: Prometheus-based monitoring and metrics collection
 - **Features**:
   - Deploys Node Exporter for system metrics
   - Configures service monitoring and alerting
@@ -539,7 +539,7 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 ### What this means
 - ✅ Commercial use allowed
-- ✅ Modification allowed  
+- ✅ Modification allowed
 - ✅ Distribution allowed
 - ✅ Private use allowed
 - ❌ No warranty or liability
@@ -562,16 +562,16 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 
 <div align="center">
 
-**ProxSpray** - *Professional Proxmox Infrastructure Automation* 
+**ProxSpray** - *Professional Proxmox Infrastructure Automation*
 
 ⭐ **Star this repo if you find it useful!** ⭐
 
-[🚀 Get Started](#-quick-start) • [📖 Documentation](#-documentation) • [🤝 Contribute](#-contributing) • [💬 Discuss](https://github.com/your-org/proxspray/discussions)
+[🚀 Get Started](#-quick-start) • [📖 Documentation](#-documentation) • [🤝 Contribute](#-contributing) • [💬 Discuss](https://github.com/ankraio/proxspray/discussions)
 
 </div>
 proxmox_version: "9.0.3"     # Latest features
 ceph_version: "squid"        # Newest release (19.x)
-ansible_ssh_common_args: '-o ProxyJump=root@51.89.192.98'
+ansible_ssh_common_args: '-o ProxyJump=root@<public_ip>
 ```
 
 ## 🚀 Usage
@@ -632,8 +632,6 @@ admin_users:
 
 ### **Ceph Pools**
 - `infra_k8s_data`: Infrastructure Kubernetes storage
-- `prod_k8s_data`: Production Kubernetes storage (DE only)
-- `dev_k8s_data`: Development Kubernetes storage (DE only)
 
 ### **Pool Configuration**
 ```yaml
@@ -656,37 +654,6 @@ ceph_pools:
 - **Node Exporter**: System metrics collection
 - **Fluent Bit**: Log aggregation and forwarding
 - **HAProxy stats**: Load balancer monitoring
-
-## 🔗 Network Architecture
-
-### **DE Network Segments**
-- `172.16.10.0/24`: Development network
-- `10.1.100.0/24`: Production network
-- `10.1.110.0/24`: Infrastructure network
-
-### **UK Network Segments**
-- `172.16.20.0/24`: Development network
-
-### **Public IPs**
-- **DE**: 168.119.65.44 (prod), 168.119.65.60 (dev)
-- **UK**: Managed via different public IP range
-
-## 🔄 Maintenance
-
-### **Update System Packages**
-```bash
-ansible-playbook -i inventory/de/inventory playbook.yml --tags os
-```
-
-### **Update Proxmox/Ceph**
-```bash
-ansible-playbook -i inventory/de/inventory playbook.yml --tags proxmox,ceph
-```
-
-### **Reconfigure Load Balancers**
-```bash
-ansible-playbook -i inventory/de/inventory playbook.yml --tags haproxy
-```
 
 ## 📋 Prerequisites
 
