@@ -5,10 +5,10 @@
   loop: "{{ ceph_pools }}"
   become: true
   register: pool_creation
-  failed_when: 
+  failed_when:
     - pool_creation.rc != 0
     - "'already exists' not in pool_creation.stderr"
-  changed_when: 
+  changed_when:
     - pool_creation.rc == 0
     - "'already exists' not in pool_creation.stderr"
   tags: ceph

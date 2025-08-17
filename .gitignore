@@ -1,0 +1,62 @@
+# Inventory files - exclude actual infrastructure configs
+inventory/
+!inventory-example/
+
+# Host and group variables for actual environments
+host_vars/
+group_vars/
+!inventory-example/host_vars/
+!inventory-example/group_vars/
+
+# Environment-specific playbooks
+*-dev.yml
+*-prod.yml
+*-staging.yml
+
+# Private infrastructure documentation
+ANKRA.md
+
+# Ansible-specific files
+*.retry
+.vault_pass
+vault_password.txt
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.tmp/
+tmp/
+*.tmp
+
+# IDE/Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Python cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Secret files
+secrets.yml
+vault.yml
+*.key
+*.pem
+*.crt
+id_rsa*
+id_ed25519*

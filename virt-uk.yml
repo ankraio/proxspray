@@ -6,7 +6,7 @@
   roles:
     - role: os
       tags: os
-    - role: network  
+    - role: network
       tags: network
     - role: admin
       tags: admin
