@@ -7,29 +7,6 @@
 [![Maintained by Ankra](https://img.shields.io/badge/Maintained%20by-Ankra-blue.svg)](https://ankra.io)
 
 
-
-## 🛠️ Advanced Features
-
-### Network Segmentation
-- **VLAN Support**: Configurable VLAN tagging for secure cluster communication
-- **Traffic Isolation**: Separate networks for management, cluster, and VM traffic
-- **Firewall Integration**: Automated firewall rules for network security
-- **DHCP Management**: Automated DHCP configuration for VM networks
-
-### Storage Optimization
-- **Intelligent PG Calculation**: Automatic placement group calculation based on cluster size
-- **Performance Tuning**: Optimized Ceph configurations for various workloads
-- **Pool Management**: Automated creation and configuration of storage pools
-- **Backup Integration**: Hooks for backup and disaster recovery systems
-
-### High Availability Features
-- **Cluster Formation**: Automated Proxmox cluster setup and maintenance
-- **Load Balancing**: HAProxy configuration with health checks
-- **Monitoring Stack**: Prometheus metrics and log aggregation
-- **Failover Support**: Automatic failover and recovery mechanismscom)
-
-**ProxSpray** is a comprehensive Ansible automation framework for deploying and managing Proxmox VE clusters with integrated Ceph storage, advanced networking, and infrastructure services.
-
 ## ✨ Features
 
 - 🔄 **Automated Proxmox VE Cluster Setup** - Deploy multi-node Proxmox clusters with zero manual intervention
