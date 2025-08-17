@@ -1,5 +1,5 @@
 # Inventory files - exclude actual infrastructure configs
-inventory/
+inventory/*
 !inventory-example/
 
 # Host and group variables for actual environments
