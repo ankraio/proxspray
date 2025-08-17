@@ -4,6 +4,86 @@
   when: proxmox_interfaces is defined
   become: true
 
+- name: Create Proxmox bridge interfaces in /etc/network/interfaces (persistent config)
+  ansible.builtin.blockinfile:
+    path: /etc/network/interfaces
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - {{ item.name }}"
+    block: |
+
+      auto {{ item.name }}
+      iface {{ item.name }} inet static
+          address {{ item.cidr }}
+          bridge-ports {% if item.vlan is defined %}vmbr0.{{ item.vlan }}{% else %}none{% endif %}
+          bridge-stp off
+          bridge-fd 0
+          {% if item.vlan is defined %}bridge-vlan-aware yes{% endif %}
+    create: yes
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Check if bridge interface already exists
+  ansible.builtin.shell: ip link show {{ item.name }}
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+  register: bridge_check
+  failed_when: false
+
+- name: Create VLAN interface if needed
+  ansible.builtin.shell: |
+    if ! ip link show vmbr0.{{ item.vlan }} >/dev/null 2>&1; then
+      ip link add link vmbr0 name vmbr0.{{ item.vlan }} type vlan id {{ item.vlan }}
+      ip link set vmbr0.{{ item.vlan }} up
+      echo "Created VLAN interface vmbr0.{{ item.vlan }}"
+    fi
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+  when: item.vlan is defined
+  register: vlan_created
+
+- name: Create bridge interface if it doesn't exist
+  ansible.builtin.shell: |
+    if ! ip link show {{ item.name }} >/dev/null 2>&1; then
+      ip link add name {{ item.name }} type bridge
+      echo "Created bridge {{ item.name }}"
+    fi
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+  register: bridge_created
+
+- name: Configure bridge interface settings
+  ansible.builtin.shell: |
+    ip link set {{ item.name }} type bridge stp_state 0
+    ip link set {{ item.name }} type bridge forward_delay 0
+    {% if item.vlan is defined %}
+    # Add VLAN interface to bridge
+    if ! bridge link show | grep -q "vmbr0.{{ item.vlan }}.*master {{ item.name }}"; then
+      ip link set vmbr0.{{ item.vlan }} master {{ item.name }}
+      echo "Added VLAN interface vmbr0.{{ item.vlan }} to bridge {{ item.name }}"
+    fi
+    {% endif %}
+    ip link set {{ item.name }} up
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Bring up bridge interface (safe)
+  ansible.builtin.shell: |
+    ip link set {{ item.name }} up
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+
+- name: Add IP address to bridge interface (idempotent)
+  ansible.builtin.shell: |
+    if ! ip addr show {{ item.name }} | grep -F {{ item.cidr | regex_replace('/.*', '') }}; then
+      ip addr add {{ item.cidr }} dev {{ item.name }}
+      echo "Added IP {{ item.cidr }} to {{ item.name }}"
+    else
+      echo "IP {{ item.cidr }} already exists on {{ item.name }}"
+    fi
+  loop: "{{ proxmox_interfaces }}"
+  become: true
+  register: ip_added
+  changed_when: "'Added IP' in ip_added.stdout"
+
 - name: Install ISC DHCP server package
   ansible.builtin.apt:
     name:
@@ -109,6 +189,22 @@
   loop: "{{ proxmox_interfaces }}"
   become: true
 
+- name: Install netfilter-persistent package
+  ansible.builtin.apt:
+    name: netfilter-persistent
+    state: present
+    update_cache: yes
+  become: true
+
+- name: Create iptables directory
+  ansible.builtin.file:
+    path: /etc/iptables
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+
 - name: Save IPv4 iptables rules
   ansible.builtin.shell: iptables-save > /etc/iptables/rules.v4
   become: true
@@ -124,8 +220,93 @@
     state: started
   become: true
 
-- name: Restart isc-dhcp-server
+- name: Stop isc-dhcp-server if running
   ansible.builtin.systemd:
     name: isc-dhcp-server
-    state: restarted
+    state: stopped
   become: true
+  ignore_errors: true
+
+- name: Kill any remaining dhcpd processes forcefully
+  ansible.builtin.shell: |
+    # First try SIGTERM
+    pkill -f dhcpd || true
+    sleep 2
+    # Then try SIGKILL if still running
+    pkill -9 -f dhcpd || true
+  become: true
+  ignore_errors: true
+
+- name: Wait for dhcpd processes to stop completely
+  ansible.builtin.pause:
+    seconds: 3
+
+- name: Clean up DHCP lease files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /var/lib/dhcp/dhcpd.leases~
+    - /var/run/dhcpd.pid
+  become: true
+  ignore_errors: true
+
+- name: Check if all required interfaces exist and are up
+  ansible.builtin.shell: |
+    missing_interfaces=""
+    down_interfaces=""
+    {% for iface in proxmox_interfaces %}
+    if ! ip link show {{ iface.name }} >/dev/null 2>&1; then
+      missing_interfaces="$missing_interfaces {{ iface.name }}"
+    elif ! ip link show {{ iface.name }} | grep -q "state UP"; then
+      down_interfaces="$down_interfaces {{ iface.name }}"
+    fi
+    {% endfor %}
+
+    if [ -n "$missing_interfaces" ]; then
+      echo "ERROR: Missing interfaces:$missing_interfaces"
+      exit 1
+    fi
+    if [ -n "$down_interfaces" ]; then
+      echo "WARNING: Down interfaces:$down_interfaces"
+      # Try to bring them up
+      {% for iface in proxmox_interfaces %}
+      ip link set {{ iface.name }} up || true
+      {% endfor %}
+    fi
+    echo "All interfaces are available"
+  become: true
+  register: interface_check
+  failed_when: interface_check.rc != 0
+
+- name: Test DHCP configuration syntax
+  ansible.builtin.shell: dhcpd -t -cf /etc/dhcp/dhcpd.conf
+  become: true
+  register: dhcp_config_check
+  failed_when: dhcp_config_check.rc != 0
+
+- name: Display DHCP configuration check results
+  ansible.builtin.debug:
+    msg: "DHCP config validation: {{ dhcp_config_check.stdout_lines | default(['No output']) }}"
+
+- name: Start and enable isc-dhcp-server with retry
+  ansible.builtin.systemd:
+    name: isc-dhcp-server
+    state: started
+    enabled: true
+    daemon_reload: true
+  become: true
+  register: dhcp_start_result
+  until: dhcp_start_result is succeeded
+  retries: 3
+  delay: 5
+
+- name: Verify DHCP server is running
+  ansible.builtin.shell: systemctl is-active isc-dhcp-server
+  become: true
+  register: dhcp_status
+  failed_when: dhcp_status.stdout != "active"
+
+- name: Display DHCP server status
+  ansible.builtin.debug:
+    msg: "DHCP server status: {{ dhcp_status.stdout }}"

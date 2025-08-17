@@ -1,0 +1,29 @@
+[all]
+srv01.example.com ansible_host=192.168.1.101 ansible_user=root
+srv02.example.com ansible_host=192.168.1.102 ansible_user=root
+srv03.example.com ansible_host=192.168.1.103 ansible_user=root
+
+[all:vars]
+ansible_ssh_common_args='-o StrictHostKeyChecking=no'
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+
+[proxmox]
+srv01.example.com
+srv02.example.com
+srv03.example.com
+
+[public_nodes]
+# Add public-facing nodes here
+
+[haproxy]
+# Add HAProxy load balancer nodes here
+
+[development]
+# Add development environment nodes here
+
+[production]
+# Add production environment nodes here
+
+[infrastructure]
+# Add infrastructure nodes here

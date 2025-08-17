@@ -1,0 +1,104 @@
+---
+- name: Configure production settings for Proxmox cluster
+  ansible.builtin.debug:
+    msg: "Configuring production settings for {{ inventory_hostname }}"
+
+- name: Set cluster options for production
+  ansible.builtin.shell: |
+    pvecm expected 3
+    ha-manager set datacenter ha=managed,enabled=1
+  when: inventory_hostname == groups['proxmox'][0]
+  become: true
+  failed_when: false
+  tags:
+    - production
+    - ha
+
+- name: Configure resource limits for production
+  ansible.builtin.lineinfile:
+    path: /etc/pve/datacenter.cfg
+    line: "{{ item }}"
+    create: yes
+  loop:
+    - "keyboard: en-uk"
+    - "migration: secure"
+    - "migration_unsecure: 0"
+    - "console: html5"
+  become: true
+  tags:
+    - production
+    - security
+
+- name: Configure memory settings for production
+  ansible.builtin.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    state: present
+    reload: yes
+  loop:
+    - { name: 'vm.swappiness', value: '10' }
+    - { name: 'vm.vfs_cache_pressure', value: '50' }
+    - { name: 'net.core.rmem_max', value: '134217728' }
+    - { name: 'net.core.wmem_max', value: '134217728' }
+  become: true
+  tags:
+    - production
+    - performance
+
+- name: Configure logrotate for production
+  ansible.builtin.copy:
+    content: |
+      /var/log/pve/*.log {
+          daily
+          rotate 7
+          compress
+          delaycompress
+          missingok
+          notifempty
+          create 0640 www-data adm
+      }
+    dest: /etc/logrotate.d/pve
+    mode: '0644'
+  become: true
+  tags:
+    - production
+    - logging
+
+- name: Enable and configure backup scheduling
+  ansible.builtin.debug:
+    msg: |
+      Production backup configuration should be set up via Proxmox web interface:
+      - Go to Datacenter > Backup
+      - Configure automated backups for critical VMs
+      - Set up retention policies
+  tags:
+    - production
+    - backup
+
+- name: Verify cluster quorum for production
+  ansible.builtin.command:
+    cmd: pvecm status
+  register: prod_cluster_status
+  changed_when: false
+  tags:
+    - production
+    - verify
+
+- name: Check cluster health for production
+  ansible.builtin.shell: |
+    pvecm nodes | grep -c online || echo "0"
+  register: online_nodes
+  changed_when: false
+  tags:
+    - production
+    - verify
+
+- name: Ensure minimum nodes are online for production
+  ansible.builtin.assert:
+    that:
+      - online_nodes.stdout | int >= 2
+    fail_msg: "Insufficient online nodes for production cluster"
+    success_msg: "Production cluster has adequate online nodes"
+  tags:
+    - production
+    - verify

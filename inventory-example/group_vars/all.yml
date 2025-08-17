@@ -1,0 +1,55 @@
+---
+# Example group variables for all hosts
+ens19_netmask: 24
+ens19_gateway: 192.168.1.1
+
+dhcp_interfaces:
+  - name: ens18
+  - name: ens19
+
+cloudflare_dns: 1.1.1.1
+
+ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+ansible_user: root
+ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+# Network Architecture:
+# vmbr0 -> Public network (192.168.1.0/24) - management network
+# vmbr1 -> Private network between Proxmox nodes (192.168.10.0/24) - VLAN 4000 for cluster communication
+# vmbr2 -> VM network (192.168.20.0/24) - Network for virtual machines
+
+# Proxmox configuration
+proxmox_version: "8.2"
+ceph_version: "reef"  # Ceph version for Proxmox 8.x
+
+# Proxmox cluster configuration
+proxmox_cluster_enabled: true
+proxmox_cluster_name: "example-cluster"
+production_mode: false
+min_cluster_nodes: 3
+
+# Ceph configuration (using private network)
+ceph_cluster_enabled: true
+ceph_network: "192.168.10.0/24"
+ceph_public_network: "192.168.10.0/24"
+
+# Ceph pools configuration for 3-node cluster
+# PG calculations: 3 OSDs × 250 max PGs/OSD = 750 total PG budget
+ceph_pools:
+  - name: vm_data
+    pg_num: 32
+    size: 3
+    min_size: 2
+  - name: vm_storage
+    pg_num: 32
+    size: 3
+    min_size: 2
+
+# Admin users configuration
+admin_users:
+  - name: admin
+    public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC... admin@example.com"
+    sudo: true
+    shell: /bin/bash
+    groups: []
+  # Add more users as needed

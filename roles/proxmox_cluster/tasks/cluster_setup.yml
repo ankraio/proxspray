@@ -1,0 +1,376 @@
+---
+- name: Configure firewall for Proxmox cluster
+  ansible.builtin.shell: |
+    iptables -I INPUT -p tcp --dport 5404:5406 -j ACCEPT
+    iptables -I INPUT -p udp --dport 5404:5406 -j ACCEPT
+    iptables -I INPUT -p tcp --dport 8006 -j ACCEPT
+    iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+  become: true
+  failed_when: false
+  tags:
+    - proxmox_cluster
+    - firewall
+
+# Insert misconfiguration fixes before status checks
+- name: Remove old clone IP from /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^172\\.16\\.20\\.101.*'
+    state: absent
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Ensure proper hostname in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^{{ ansible_default_ipv4.address }}\\s+'
+    line: '{{ ansible_default_ipv4.address }} {{ inventory_hostname_short }} {{ inventory_hostname }}'
+    state: present
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Set correct hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Ensure all cluster nodes are in /etc/hosts
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^{{ hostvars[item].ansible_default_ipv4.address }}\\s+'
+    line: '{{ hostvars[item].ansible_default_ipv4.address }} {{ hostvars[item].inventory_hostname_short }} {{ hostvars[item].inventory_hostname }}'
+    state: present
+  become: true
+  loop: "{{ groups['proxmox'] }}"
+  when: hostvars[item].ansible_default_ipv4.address is defined
+  tags:
+    - proxmox_cluster
+
+# Replace above sed tasks with slurp-based approach
+- name: Check for existing Corosync config
+  ansible.builtin.stat:
+    path: /etc/pve/corosync.conf
+  register: corosync_conf_stat
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Slurp corosync config from /etc/pve/corosync.conf
+  ansible.builtin.slurp:
+    src: /etc/pve/corosync.conf
+  register: corosync_raw
+  when:
+    - inventory_hostname == groups['proxmox'][0]
+    - corosync_conf_stat.stat.exists
+  failed_when: false
+  tags:
+    - proxmox_cluster
+
+- name: Check existing cluster status
+  ansible.builtin.command:
+    cmd: pvecm status
+  register: cluster_status
+  failed_when: false
+  changed_when: false
+
+- name: Check cluster nodes count
+  ansible.builtin.command:
+    cmd: pvecm nodes
+  register: cluster_nodes_check
+  failed_when: false
+  changed_when: false
+
+- name: Set cluster facts
+  ansible.builtin.set_fact:
+    is_cluster_member: "{{ cluster_status.rc == 0 and (cluster_nodes_check.stdout_lines | length > 1 or proxmox_cluster_name in cluster_status.stdout) }}"
+    is_first_node: "{{ inventory_hostname == groups['proxmox'][0] }}"
+    in_target_cluster: "{{ cluster_status.rc == 0 and proxmox_cluster_name in cluster_status.stdout }}"
+
+- name: Debug cluster status
+  ansible.builtin.debug:
+    msg: |
+      Node: {{ inventory_hostname }}
+      Is first node: {{ is_first_node }}
+      Cluster status RC: {{ cluster_status.rc }}
+      Is cluster member: {{ is_cluster_member }}
+      In target cluster: {{ in_target_cluster }}
+      Cluster status output: {{ cluster_status.stdout | default('No output') }}
+  tags:
+    - proxmox_cluster
+    - debug
+
+- name: Destroy existing broken cluster on first node
+  ansible.builtin.shell: |
+    # Stop cluster services
+    systemctl stop corosync pve-cluster || true
+    sleep 2
+
+    # Kill any lingering pmxcfs processes
+    pkill pmxcfs || true
+
+    # Unmount the Proxmox cluster FS to allow file removal
+    if mountpoint -q /etc/pve; then
+      umount /etc/pve || true
+    fi
+
+    # Clean up cluster configuration files and lock files
+    rm -rf /etc/pve/corosync.conf /etc/corosync/corosync.conf
+    rm -rf /var/lib/corosync/*
+    rm -f /var/lock/pve-cluster* /var/lock/pmxcfs* /var/run/pmxcfs* || true
+
+    # Restart pmxcfs to clear cluster state
+    systemctl start pve-cluster
+    sleep 5
+
+    # Verify pmxcfs is active
+    systemctl is-active pve-cluster
+  become: true
+  when:
+    - is_first_node
+    - cluster_status.rc != 0 or not in_target_cluster
+  failed_when: false
+  tags:
+    - proxmox_cluster
+
+- name: Verify hostname resolution before cluster creation
+  ansible.builtin.shell: |
+     # Check if hostname resolves to correct IP (first entry only)
+     resolved_ip=$(getent hosts {{ inventory_hostname }} | awk 'NR==1 {print $1}')
+     if [ "$resolved_ip" != "{{ ansible_default_ipv4.address }}" ]; then
+       echo "Hostname resolution mismatch: $resolved_ip vs {{ ansible_default_ipv4.address }}"
+       exit 1
+     fi
+     # Check if short hostname also resolves to correct IP (first entry only)
+     short_resolved=$(getent hosts {{ inventory_hostname_short }} | awk 'NR==1 {print $1}')
+     if [ "$short_resolved" != "{{ ansible_default_ipv4.address }}" ]; then
+       echo "Short hostname resolution mismatch: $short_resolved vs {{ ansible_default_ipv4.address }}"
+       exit 1
+     fi
+     echo "Hostname resolution verified"
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+
+ # Create the cluster on first node when not already in cluster
+- name: Create new cluster on first node
+  ansible.builtin.command:
+    cmd: "pvecm create {{ proxmox_cluster_name }}"
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  register: cluster_create_result
+  tags:
+    - proxmox_cluster
+    - cluster_create
+
+- name: Populate /etc/hosts for all cluster members
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line: "{{ hostvars[item].ansible_default_ipv4.address }} {{ item }} {{ item.split('.')[0] }}"
+  loop: "{{ groups['proxmox'] }}"
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Copy corosync.conf into /etc/corosync
+  ansible.builtin.copy:
+    src: /etc/pve/corosync.conf
+    dest: /etc/corosync/corosync.conf
+    remote_src: true
+  become: true
+  when:
+    - is_first_node
+  tags:
+    - proxmox_cluster
+
+- name: Restart corosync service
+  ansible.builtin.systemd:
+    name: corosync
+    state: restarted
+    enabled: true
+  become: true
+  when:
+    - is_first_node
+  tags:
+    - proxmox_cluster
+
+- name: Add short hostname to /etc/hosts for certificate update
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    regexp: '^{{ ansible_default_ipv4.address }}\s.*{{ ansible_hostname }}'
+    line: '{{ ansible_default_ipv4.address }} {{ inventory_hostname }} {{ ansible_hostname }}'
+    state: present
+  become: true
+  tags:
+    - proxmox_cluster
+
+- name: Update Proxmox cluster certificates for new hostname
+  ansible.builtin.command:
+    cmd: pvecm updatecerts -f
+  become: true
+  failed_when: false
+  when:
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+
+- name: Restart Proxmox cluster services after certificate update
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: yes
+  loop:
+    - pve-cluster
+    - corosync
+    - pvedaemon
+    - pveproxy
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - cluster_create
+
+- name: Wait for Proxmox web interface after certificate update
+  ansible.builtin.wait_for:
+    port: 8006
+    host: "{{ ansible_default_ipv4.address }}"
+    timeout: 60
+    delay: 5
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  failed_when: false
+  tags:
+    - proxmox_cluster
+    - cluster_create
+
+- name: Check existing cluster status
+
+  ansible.builtin.wait_for:
+    port: 8006
+    host: "{{ ansible_default_ipv4.address }}"
+    timeout: 60
+    delay: 5
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  failed_when: false
+  tags:
+    - proxmox_cluster
+    - cluster_create
+
+- name: Wait for pvecm status after certificate update
+  ansible.builtin.command:
+    cmd: pvecm status
+  register: pvecm_status_after
+  retries: 6
+  delay: 10
+  until: pvecm_status_after.rc == 0
+  become: true
+  when:
+    - is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - cluster_create
+
+- name: Debug cluster join conditions
+  ansible.builtin.debug:
+    msg: |
+      Node: {{ inventory_hostname }}
+      Is first node: {{ is_first_node }}
+      In target cluster: {{ in_target_cluster }}
+      Will join cluster: {{ not is_first_node and not in_target_cluster }}
+  when: not is_first_node
+  tags:
+    - proxmox_cluster
+    - debug
+
+- name: Ensure SSH keys exist for cluster join
+  ansible.builtin.shell: |
+    if [ ! -f ~/.ssh/id_rsa ]; then
+      ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N ""
+    fi
+    # Copy public key to first node
+    ssh-copy-id -o StrictHostKeyChecking=no root@{{ hostvars[groups['proxmox'][0]]['ansible_default_ipv4']['address'] }} || true
+  become: true
+  when:
+    - not is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - cluster_join
+
+- name: Join cluster on other nodes
+  ansible.builtin.shell: |
+    # Set up SSH key authentication first
+    ssh-keyscan -H {{ hostvars[groups['proxmox'][0]]['ansible_default_ipv4']['address'] }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+    # Use timeout to prevent hanging
+    timeout 60 pvecm add {{ hostvars[groups['proxmox'][0]]['ansible_default_ipv4']['address'] }} --use_ssh --force 2>&1 || {
+      echo "pvecm add failed or timed out"
+      pvecm status || echo "No cluster status available"
+      exit 1
+    }
+  register: cluster_join_result
+  retries: 2
+  delay: 15
+  until: cluster_join_result.rc == 0
+  become: true
+  failed_when: false
+  when:
+    - not is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - cluster_join
+
+- name: Debug join result
+  ansible.builtin.debug:
+    var: cluster_join_result
+  when:
+    - not is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - debug
+
+- name: Verify cluster membership
+  ansible.builtin.command:
+    cmd: pvecm nodes
+  register: cluster_nodes
+  changed_when: false
+  failed_when: false
+  when: cluster_status.rc == 0
+  tags:
+    - proxmox_cluster
+    - cluster_verify
+
+- name: Pause before joining cluster on other nodes after certificate update
+  ansible.builtin.pause:
+    seconds: 10
+  delegate_to: localhost
+  when:
+    - not is_first_node
+    - not in_target_cluster
+  tags:
+    - proxmox_cluster
+    - cluster_join
+
+- name: Display cluster status after setup
+  ansible.builtin.debug:
+    msg: "Cluster setup complete"
+  tags:
+    - proxmox_cluster

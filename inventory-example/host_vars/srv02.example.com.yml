@@ -1,0 +1,14 @@
+---
+# Host-specific variables for srv02.example.com
+
+proxmox_interfaces:
+  - name: vmbr1
+    cidr: 192.168.10.102/24
+    vlan: 4000
+    description: "Private network between Proxmox nodes (VLAN 4000)"
+  - name: vmbr2
+    cidr: 192.168.20.1/24
+    description: "Network for VMs"
+
+# Ceph specific configuration for srv02
+ceph_node_ip: 192.168.10.102

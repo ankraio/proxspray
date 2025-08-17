@@ -1,2 +1,3 @@
 # Managed by Ansible
-INTERFACESv4="{% for iface in proxmox_interfaces %}{{ iface.name }} {% endfor %}"
+# Only serve DHCP on VM network interface
+INTERFACESv4="{% for iface in proxmox_interfaces %}{% if iface.name == 'vmbr2' %}{{ iface.name }}{% endif %}{% endfor %}"

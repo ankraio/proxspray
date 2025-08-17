@@ -1,0 +1,8 @@
+---
+# Handlers for proxmox_cluster role
+- name: Restart corosync service
+  ansible.builtin.systemd:
+    name: corosync
+    state: restarted
+    enabled: yes
+  become: true

@@ -1,0 +1,125 @@
+---
+- name: Check if Ceph is already configured
+  ansible.builtin.command:
+    cmd: ceph status
+  register: ceph_status
+  failed_when: false
+  changed_when: false
+
+- name: Set Ceph facts
+  ansible.builtin.set_fact:
+    ceph_configured: "{{ ceph_status.rc == 0 }}"
+    is_ceph_first_node: "{{ inventory_hostname == groups['proxmox'][0] }}"
+
+- name: Install Ceph packages if not already installed
+  ansible.builtin.apt:
+    name:
+      - ceph
+      - ceph-common
+      - ceph-mgr
+      - ceph-mon
+      - ceph-osd
+    state: present
+    update_cache: yes
+  become: true
+  when: not ceph_configured
+
+- name: Initialize Ceph cluster on first node
+  ansible.builtin.shell: |
+    pveceph install --repository no-subscription
+    pveceph init --network {{ ceph_network }}
+  when:
+    - is_ceph_first_node
+    - not ceph_configured
+  become: true
+  tags:
+    - ceph_cluster
+    - ceph_init
+
+- name: Create initial Ceph monitor on first node
+  ansible.builtin.command:
+    cmd: "pveceph mon create"
+  when:
+    - is_ceph_first_node
+    - not ceph_configured
+  become: true
+  tags:
+    - ceph_cluster
+    - ceph_mon
+
+- name: Wait for Ceph monitor to be ready
+  ansible.builtin.wait_for:
+    port: 6789
+    host: "{{ ansible_default_ipv4.address }}"
+    timeout: 60
+  when:
+    - is_ceph_first_node
+    - not ceph_configured
+
+- name: Create Ceph monitors on other nodes
+  ansible.builtin.command:
+    cmd: "pveceph mon create"
+  when:
+    - not is_ceph_first_node
+    - not ceph_configured
+  become: true
+  tags:
+    - ceph_cluster
+    - ceph_mon
+
+- name: Create Ceph manager on first node
+  ansible.builtin.command:
+    cmd: "pveceph mgr create"
+  when:
+    - is_ceph_first_node
+    - not ceph_configured
+  become: true
+  tags:
+    - ceph_cluster
+    - ceph_mgr
+
+- name: Create Ceph managers on other nodes
+  ansible.builtin.command:
+    cmd: "pveceph mgr create"
+  when:
+    - not is_ceph_first_node
+    - not ceph_configured
+  become: true
+  tags:
+    - ceph_cluster
+    - ceph_mgr
+
+- name: Check for available disks for OSDs
+  ansible.builtin.shell: |
+    lsblk -dpno NAME,SIZE,TYPE | grep disk | grep -v $(lsblk -no PKNAME $(findmnt -no SOURCE /)) | head -5
+  register: available_disks
+  changed_when: false
+
+- name: Display available disks
+  ansible.builtin.debug:
+    msg: "Available disks: {{ available_disks.stdout_lines }}"
+
+- name: Create OSD on available disks (manual step required)
+  ansible.builtin.debug:
+    msg: |
+      To create OSDs, run manually:
+      {% for line in available_disks.stdout_lines %}
+      pveceph osd create {{ line.split()[0] }}
+      {% endfor %}
+  when: available_disks.stdout_lines | length > 0
+
+- name: Verify Ceph cluster status
+  ansible.builtin.command:
+    cmd: ceph status
+  register: final_ceph_status
+  changed_when: false
+  tags:
+    - ceph_cluster
+    - ceph_verify
+
+- name: Display Ceph status
+  ansible.builtin.debug:
+    var: final_ceph_status.stdout_lines
+  tags:
+    - ceph_cluster
+    - ceph_verify

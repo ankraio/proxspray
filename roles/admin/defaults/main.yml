@@ -1,8 +1,8 @@
 ---
-# Default variables for ankra role
-ankra_users: []
+# Default variables for admin role
+admin_users: []
 # Example structure:
-# ankra_users:
+# admin_users:
 #   - name: username
 #     public_key: "ssh-rsa AAAA..."
 #     sudo: true

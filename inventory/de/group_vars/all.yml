@@ -19,7 +19,11 @@ ansible_user: debian
 ansible_ssh_private_key_file: ~/.ssh/id_ed25519
 
 proxmox_version: "8.4.1"
-ceph_version: "squid"
+ceph_version: "quincy"  # Stable Ceph version for older Proxmox
+
+# Single node configuration (no clustering)
+proxmox_cluster_enabled: false
+production_mode: false
 
 ceph_pools:
   - name: infra_k8s_data
@@ -32,8 +36,8 @@ ceph_pools:
     size: 2
     min_size: 1
 
-# Ankra users configuration
-ankra_users:
+# Admin users configuration
+admin_users:
   - name: mark
     public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIH0lTjp4WvJ4tA60xLQPpNXpAo3lKymXHGzvk3UpQOUp mark@ankra"
     sudo: true

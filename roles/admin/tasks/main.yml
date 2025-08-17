@@ -1,15 +1,15 @@
 ---
-- name: Create ankra users
+- name: Create admin users
   ansible.builtin.user:
     name: "{{ item.name }}"
     shell: "{{ item.shell | default('/bin/bash') }}"
     groups: "{{ item.groups | default([]) | join(',') }}"
     append: true
     create_home: true
-  loop: "{{ ankra_users }}"
+  loop: "{{ admin_users }}"
   become: true
   tags:
-    - ankra
+    - admin
     - users
 
 - name: Add users to sudo group if sudo is enabled
@@ -17,11 +17,11 @@
     name: "{{ item.name }}"
     groups: sudo
     append: true
-  loop: "{{ ankra_users }}"
+  loop: "{{ admin_users }}"
   when: item.sudo | default(false)
   become: true
   tags:
-    - ankra
+    - admin
     - users
     - sudo
 
@@ -32,10 +32,10 @@
     owner: "{{ item.name }}"
     group: "{{ item.name }}"
     mode: '0700'
-  loop: "{{ ankra_users }}"
+  loop: "{{ admin_users }}"
   become: true
   tags:
-    - ankra
+    - admin
     - ssh
 
 - name: Add SSH public keys for users
@@ -43,24 +43,24 @@
     user: "{{ item.name }}"
     state: present
     key: "{{ item.public_key }}"
-    comment: "{{ item.name }}@ankra"
-  loop: "{{ ankra_users }}"
+    comment: "{{ item.name }}@admin"
+  loop: "{{ admin_users }}"
   when: item.public_key is defined
   become: true
   tags:
-    - ankra
+    - admin
     - ssh
 
 - name: Configure sudo without password for sudo users
   ansible.builtin.lineinfile:
-    path: /etc/sudoers.d/ankra-users
+    path: /etc/sudoers.d/admin-users
     line: "{{ item.name }} ALL=(ALL) NOPASSWD:ALL"
     create: true
     validate: 'visudo -cf %s'
     mode: '0440'
-  loop: "{{ ankra_users }}"
+  loop: "{{ admin_users }}"
   when: item.sudo | default(false)
   become: true
   tags:
-    - ankra
+    - admin
     - sudo

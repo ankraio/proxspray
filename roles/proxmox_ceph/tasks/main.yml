@@ -1,11 +1,16 @@
 ---
-- name: Create Ceph pools
+- name: Create Ceph pools with appropriate PG counts for small cluster
   ansible.builtin.command: >
-    ceph osd pool create {{ item.name }} {{ item.pg_num | default(128) }}
-  args:
-    creates: "/var/lib/ceph/osd/ceph-*/current/{{ item.name }}"
+    ceph osd pool create {{ item.name }} {{ item.pg_num | default(32) }}
   loop: "{{ ceph_pools }}"
   become: true
+  register: pool_creation
+  failed_when: 
+    - pool_creation.rc != 0
+    - "'already exists' not in pool_creation.stderr"
+  changed_when: 
+    - pool_creation.rc == 0
+    - "'already exists' not in pool_creation.stderr"
   tags: ceph
 
 - name: Set Ceph pool size and min_size

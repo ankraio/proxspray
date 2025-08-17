@@ -1,0 +1,22 @@
+---
+# Default variables for proxmox_cluster role
+proxmox_cluster_enabled: true
+proxmox_cluster_name: "ankra-cluster"
+ceph_cluster_enabled: true
+ceph_network: "10.1.0.0/16"  # Adjust based on your network
+ceph_public_network: "{{ ceph_network }}"
+ceph_cluster_network: "{{ ceph_network }}"
+
+# Minimum nodes required for cluster operations
+min_cluster_nodes: 2
+
+# Ceph configuration
+ceph_mon_initial_members: []  # Will be auto-populated
+ceph_mon_host: []  # Will be auto-populated
+ceph_osd_pool_default_size: 3
+ceph_osd_pool_default_min_size: 2
+
+# Production readiness settings
+production_mode: false
+configure_ha: false
+configure_fencing: false

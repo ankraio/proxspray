@@ -1,0 +1,14 @@
+---
+# Host-specific variables for srv03.virt-uk.ankra.dev
+
+proxmox_interfaces:
+  - name: vmbr1
+    cidr: 172.16.21.103/24
+    vlan: 4000
+    description: "Private network between Proxmox nodes (VLAN 4000)"
+  - name: vmbr2
+    cidr: 172.16.22.1/24
+    description: "Network for VMs"
+
+# Ceph specific configuration for srv03 (using private network)
+ceph_node_ip: 172.16.21.103

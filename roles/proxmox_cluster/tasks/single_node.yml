@@ -1,0 +1,54 @@
+---
+- name: Configure single Proxmox node
+  ansible.builtin.debug:
+    msg: "Configuring single Proxmox node: {{ inventory_hostname }}"
+
+- name: Ensure single node has proper storage configuration
+  ansible.builtin.command:
+    cmd: pvesm status
+  register: storage_status
+  changed_when: false
+  tags:
+    - single_node
+    - storage
+
+- name: Configure local storage for single node
+  ansible.builtin.shell: |
+    pvesm set local --content images,vztmpl,iso,backup,snippets
+    pvesm set local-lvm --content images,rootdir
+  become: true
+  failed_when: false
+  tags:
+    - single_node
+    - storage
+
+- name: Set single node cluster options
+  ansible.builtin.shell: |
+    pvecm expected 1
+  become: true
+  failed_when: false
+  tags:
+    - single_node
+    - cluster
+
+- name: Configure single node backup location
+  ansible.builtin.file:
+    path: /var/lib/vz/dump
+    state: directory
+    mode: '0755'
+  become: true
+  tags:
+    - single_node
+    - backup
+
+- name: Display single node information
+  ansible.builtin.debug:
+    msg: |
+      Single node Proxmox configuration complete.
+      - Web UI: https://{{ ansible_default_ipv4.address }}:8006
+      - Storage configured for local use
+      - Backup directory: /var/lib/vz/dump
+      - No clustering enabled (single node)
+  tags:
+    - single_node
+    - info

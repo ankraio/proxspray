@@ -1,0 +1,36 @@
+---
+- name: Check if running on Proxmox
+  ansible.builtin.stat:
+    path: /usr/bin/pvesh
+  register: proxmox_check
+
+- name: Skip cluster setup if not Proxmox or single node
+  ansible.builtin.debug:
+    msg: "Skipping cluster setup - either not Proxmox or single node deployment"
+  when: not proxmox_check.stat.exists or (groups['proxmox'] | length < min_cluster_nodes)
+
+- name: Include cluster setup tasks
+  ansible.builtin.include_tasks: cluster_setup.yml
+  when:
+    - proxmox_check.stat.exists
+    - proxmox_cluster_enabled
+    - groups['proxmox'] | length >= min_cluster_nodes
+
+- name: Include Ceph setup tasks
+  ansible.builtin.include_tasks: ceph_setup.yml
+  when:
+    - proxmox_check.stat.exists
+    - ceph_cluster_enabled
+    - groups['proxmox'] | length >= min_cluster_nodes
+
+- name: Include production setup tasks
+  ansible.builtin.include_tasks: production_setup.yml
+  when:
+    - proxmox_check.stat.exists
+    - production_mode | default(false)
+
+- name: Include single node setup tasks
+  ansible.builtin.include_tasks: single_node.yml
+  when:
+    - proxmox_check.stat.exists
+    - groups['proxmox'] | length < min_cluster_nodes
