@@ -1,0 +1,15 @@
+---
+# Standalone playbook to create terraform user and API token
+# Usage: ansible-playbook -i inventory/hetzner/inventory setup-terraform-user.yml --ask-vault-pass --extra-vars "proxmox_api_password=YOUR_ROOT_PASSWORD"
+
+- name: Setup Terraform User and API Token in Proxmox
+  hosts: proxmox
+  gather_facts: true
+  vars:
+    terraform_user_password: "{{ vault_terraform_password | default('terraform123!') }}"
+  
+  tasks:
+    - name: Include proxmox_terraform role
+      include_role:
+        name: proxmox_terraform
+      tags: proxmox_terraform

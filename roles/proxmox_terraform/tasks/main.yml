@@ -1,0 +1,188 @@
+---
+- name: Get Proxmox authentication ticket
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/ticket"
+    method: POST
+    headers:
+      Content-Type: "application/x-www-form-urlencoded"
+    body_format: form-urlencoded
+    body:
+      username: "{{ proxmox_api_user | default('root@pam') }}"
+      password: "{{ proxmox_api_password }}"
+    validate_certs: false
+    status_code: [200, 401]
+    timeout: 30
+  register: proxmox_auth
+  become: false
+  delegate_to: localhost
+
+- name: Check authentication result
+  ansible.builtin.debug:
+    msg: "Proxmox authentication {{ 'successful' if proxmox_auth.status == 200 else 'failed' }}"
+
+- name: Set authentication headers for subsequent requests
+  ansible.builtin.set_fact:
+    proxmox_auth_headers:
+      Cookie: "PVEAuthCookie={{ proxmox_auth.json.data.ticket }}"
+      CSRFPreventionToken: "{{ proxmox_auth.json.data.CSRFPreventionToken }}"
+      Content-Type: "application/x-www-form-urlencoded"
+  when: proxmox_auth.status == 200
+
+- name: Fail if authentication failed
+  ansible.builtin.fail:
+    msg: "Failed to authenticate with Proxmox. Please check your proxmox_api_password."
+  when: proxmox_auth.status != 200
+
+- name: Create terraform user in Proxmox
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/users"
+    method: POST
+    headers: "{{ proxmox_auth_headers }}"
+    body_format: form-urlencoded
+    body:
+      userid: "terraform@pve"
+      password: "{{ terraform_user_password | default('terraform123!') }}"
+      comment: "Terraform automation user"
+    validate_certs: false
+    status_code: [200, 500]  # 500 means user already exists
+  register: terraform_user_result
+  become: false
+  delegate_to: localhost
+
+- name: Display user creation result
+  ansible.builtin.debug:
+    msg: "Terraform user creation: {{ 'Success' if terraform_user_result.status == 200 else 'User already exists' }}"
+
+- name: Set terraform user permissions (PVEAdmin on root path)
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/acl"
+    method: PUT
+    headers: "{{ proxmox_auth_headers }}"
+    body_format: form-urlencoded
+    body:
+      path: "/"
+      users: "terraform@pve"
+      roles: "PVEAdmin"
+    validate_certs: false
+    status_code: [200]
+    timeout: 30
+  become: false
+  delegate_to: localhost
+
+- name: Create API token for terraform user (with retry)
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/users/terraform@pve/token/terraform-token"
+    method: POST
+    headers: "{{ proxmox_auth_headers }}"
+    body_format: form-urlencoded
+    body:
+      comment: "Terraform automation token"
+      privsep: "0"  # No privilege separation
+    validate_certs: false
+    status_code: [200, 400, 500]  # 400/500 means token already exists
+    timeout: 30
+  register: terraform_token_result
+  become: false
+  delegate_to: localhost
+  until: terraform_token_result.status in [200, 400, 500]
+  retries: 3
+  delay: 5
+
+- name: Extract token value from response
+  ansible.builtin.set_fact:
+    terraform_api_token: "{{ terraform_token_result.json.data.value }}"
+  when: terraform_token_result.status == 200
+
+- name: Handle existing token case
+  ansible.builtin.debug:
+    msg: "API token already exists. Deleting existing token to create a new one..."
+  when: terraform_token_result.status in [400, 500]
+
+- name: Delete existing API token
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/users/terraform@pve/token/terraform-token"
+    method: DELETE
+    headers: "{{ proxmox_auth_headers }}"
+    validate_certs: false
+    status_code: [200, 404]  # 404 means token doesn't exist
+    timeout: 30
+  register: delete_token_result
+  become: false
+  delegate_to: localhost
+  when: terraform_token_result.status in [400, 500]
+
+- name: Create new API token after deletion
+  ansible.builtin.uri:
+    url: "https://localhost:8006/api2/json/access/users/terraform@pve/token/terraform-token"
+    method: POST
+    headers: "{{ proxmox_auth_headers }}"
+    body_format: form-urlencoded
+    body:
+      comment: "Terraform automation token"
+      privsep: "0"  # No privilege separation
+    validate_certs: false
+    status_code: [200]
+    timeout: 30
+  register: new_token_result
+  become: false
+  delegate_to: localhost
+  when: terraform_token_result.status in [400, 500]
+
+- name: Extract new token value
+  ansible.builtin.set_fact:
+    terraform_api_token: "{{ new_token_result.json.data.value }}"
+  when: terraform_token_result.status in [400, 500] and new_token_result.status == 200
+
+- name: Create local token file directory
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform"
+    state: directory
+    mode: '0755'
+  become: false
+  delegate_to: localhost
+
+- name: Store terraform API token locally
+  ansible.builtin.copy:
+    content: |
+      # Proxmox API Configuration for {{ inventory_hostname }}
+      PROXMOX_URL=https://localhost:8006/api2/json
+      PROXMOX_USER=terraform@pve
+      PROXMOX_TOKEN_ID=terraform-token
+      PROXMOX_TOKEN_SECRET={{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}
+      
+      # For Terraform
+      export TF_VAR_proxmox_url="https://localhost:8006/api2/json"
+      export TF_VAR_proxmox_user="terraform@pve"
+      export TF_VAR_proxmox_token_id="terraform-token"
+      export TF_VAR_proxmox_token_secret="{{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}"
+      
+      # Full API token format (for direct API calls)
+      API_TOKEN="terraform@pve!terraform-token={{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}"
+    dest: "{{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}"
+    mode: '0600'
+  become: false
+  delegate_to: localhost
+  when: terraform_api_token is defined
+
+- name: Display token file location
+  ansible.builtin.debug:
+    msg: |
+      Terraform API token configuration saved to: {{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}
+      
+      To use with Terraform, source the file:
+      source {{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}
+      
+      Or use the variables directly in your Terraform configuration.
+  when: terraform_api_token is defined
+
+- name: Display failure message if token creation failed
+  ansible.builtin.debug:
+    msg: |
+      Failed to create or retrieve API token. 
+      This might be because:
+      1. The token already exists (delete it first if you need a new one)
+      2. API authentication failed
+      3. Insufficient permissions
+      
+      Check the Proxmox web interface manually to verify.
+  when: terraform_api_token is not defined

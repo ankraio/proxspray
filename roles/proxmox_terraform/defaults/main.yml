@@ -1,0 +1,14 @@
+---
+# Default variables for proxmox_terraform role
+
+# Terraform user configuration
+terraform_user_password: "terraform123!"  # Change this to a secure password
+
+# Proxmox API configuration for authentication
+# These should be set in group_vars or host_vars
+proxmox_api_user: "root@pam"
+proxmox_api_token_id: "terraform-setup"
+proxmox_api_token_secret: ""  # This needs to be provided
+
+# Alternative: use password authentication (less secure)
+proxmox_api_password: ""  # If using password instead of token

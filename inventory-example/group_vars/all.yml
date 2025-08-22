@@ -20,30 +20,77 @@ ansible_ssh_private_key_file: ~/.ssh/id_rsa
 
 # Proxmox configuration
 proxmox_version: "8.2"
-ceph_version: "reef"  # Ceph version for Proxmox 8.x
+ceph_version: "squid"  # Ceph version for Proxmox 8.x and Debian Trixie
 
-# Proxmox cluster configuration
+# =============================================================================
+# CLUSTER CONFIGURATION - Choose ONE of the following configurations:
+# =============================================================================
+
+# OPTION 1: MULTI-NODE CLUSTER (3+ nodes with replication)
+# Use this for production environments with multiple Proxmox nodes
 proxmox_cluster_enabled: true
 proxmox_cluster_name: "example-cluster"
 production_mode: false
 min_cluster_nodes: 3
 
-# Ceph configuration (using private network)
+# Ceph configuration for MULTI-NODE cluster (with replication)
 ceph_cluster_enabled: true
 ceph_network: "192.168.10.0/24"
 ceph_public_network: "192.168.10.0/24"
 
-# Ceph pools configuration for 3-node cluster
-# PG calculations: 3 OSDs × 250 max PGs/OSD = 750 total PG budget
+# Ceph pools for MULTI-NODE (size=3, min_size=2 for high availability)
 ceph_pools:
   - name: vm_data
     pg_num: 32
-    size: 3
-    min_size: 2
+    size: 3      # Data replicated across 3 nodes
+    min_size: 2  # Minimum 2 replicas required
   - name: vm_storage
     pg_num: 32
     size: 3
     min_size: 2
+
+# OPTION 2: SINGLE NODE SETUP (for testing/development)
+# Uncomment and use this configuration for single node deployments:
+#
+# proxmox_cluster_enabled: false  # No clustering
+# proxmox_cluster_name: "example-cluster"
+# production_mode: false
+# min_cluster_nodes: 1
+#
+# # Ceph configuration for SINGLE NODE (no replication)
+# ceph_cluster_enabled: true
+# ceph_network: "192.168.10.0/24"
+# ceph_public_network: "192.168.10.0/24"
+#
+# # Ceph pools for SINGLE NODE (size=1, min_size=1 - NO replication)
+# ceph_pools:
+#   - name: vm_data
+#     pg_num: 32
+#     size: 1      # No replication (single node)
+#     min_size: 1  # Minimum 1 replica
+#   - name: vm_storage
+#     pg_num: 32
+#     size: 1
+#     min_size: 1
+#
+# =============================================================================
+
+# Security configuration
+# Proxmox web interface access control
+proxmox_web_allowed_networks:
+  - "192.168.0.0/16"  # Private networks
+  - "10.0.0.0/8"      # Private networks
+  - "172.16.0.0/12"   # Private networks
+  - "127.0.0.1/32"    # Localhost
+
+# Add your public IP here if you need remote access
+# proxmox_web_allowed_ips:
+#   - "YOUR.PUBLIC.IP.HERE/32"
+
+# Proxmox API configuration for terraform user creation
+# You'll need to provide the root password for initial setup
+# proxmox_api_password: "YOUR_ROOT_PASSWORD_HERE"
+terraform_user_password: "terraform123!"  # Change this to a secure password
 
 # Admin users configuration
 admin_users:

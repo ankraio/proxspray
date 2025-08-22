@@ -33,4 +33,11 @@
   ansible.builtin.include_tasks: single_node.yml
   when:
     - proxmox_check.stat.exists
+    - groups['proxmox'] | length <= min_cluster_nodes
+
+- name: Include single node Ceph setup
+  ansible.builtin.include_tasks: ceph_setup.yml
+  when:
+    - proxmox_check.stat.exists
+    - ceph_cluster_enabled
     - groups['proxmox'] | length < min_cluster_nodes

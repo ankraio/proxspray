@@ -1,4 +1,13 @@
 ---
+- name: Configure Ceph for single node operation (enable size=1 pools)
+  ansible.builtin.command: >
+    ceph config set global mon_allow_pool_size_one true
+  become: true
+  when: groups['proxmox'] | length == 1
+  tags: 
+    - ceph
+    - ceph_single_node
+
 - name: Create Ceph pools with appropriate PG counts for small cluster
   ansible.builtin.command: >
     ceph osd pool create {{ item.name }} {{ item.pg_num | default(32) }}
@@ -16,6 +25,7 @@
 - name: Set Ceph pool size and min_size
   ansible.builtin.command: >
     ceph osd pool set {{ item.name }} size {{ item.size }}
+    {% if item.size == 1 %}--yes-i-really-mean-it{% endif %}
   loop: "{{ ceph_pools }}"
   become: true
   tags: ceph
@@ -23,6 +33,7 @@
 - name: Set Ceph pool min_size
   ansible.builtin.command: >
     ceph osd pool set {{ item.name }} min_size {{ item.min_size }}
+    {% if item.min_size == 1 %}--yes-i-really-mean-it{% endif %}
   loop: "{{ ceph_pools }}"
   become: true
   tags: ceph

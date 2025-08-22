@@ -29,6 +29,8 @@
       tags: proxmox
     - role: proxmox_interfaces
       tags: proxmox_interfaces
+    - role: proxmox_terraform
+      tags: proxmox_terraform
     - role: admin
       tags: admin
 

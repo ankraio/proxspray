@@ -41,14 +41,85 @@
     - single_node
     - backup
 
+- name: Configure firewall for single node Proxmox
+  ansible.builtin.shell: |
+    iptables -I INPUT -p tcp --dport 22 -j ACCEPT
+  become: true
+  failed_when: false
+  tags:
+    - single_node
+    - firewall
+
+- name: Remove existing Proxmox web interface rules (single node)
+  ansible.builtin.shell: |
+    # Remove any existing rules for port 8006
+    iptables -D INPUT -p tcp --dport 8006 -j ACCEPT 2>/dev/null || true
+    iptables -D INPUT -p tcp --dport 8006 -j REJECT 2>/dev/null || true
+  become: true
+  tags:
+    - single_node
+    - firewall
+    - security
+
+- name: Allow Proxmox web interface from private networks (single node)
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "8006"
+    source: "{{ item }}"
+    jump: ACCEPT
+  loop: "{{ proxmox_web_allowed_networks | default(['192.168.0.0/16', '10.0.0.0/8', '172.16.0.0/12', '127.0.0.1/32']) }}"
+  become: true
+  tags:
+    - single_node
+    - firewall
+    - security
+
+- name: Allow Proxmox web interface from specific IPs (single node)
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "8006"
+    source: "{{ item }}"
+    jump: ACCEPT
+  loop: "{{ proxmox_web_allowed_ips | default([]) }}"
+  when: proxmox_web_allowed_ips is defined and proxmox_web_allowed_ips | length > 0
+  become: true
+  tags:
+    - single_node
+    - firewall
+    - security
+
+- name: Block Proxmox web interface from all other sources (single node)
+  ansible.builtin.iptables:
+    chain: INPUT
+    protocol: tcp
+    destination_port: "8006"
+    jump: REJECT
+    reject_with: "icmp-port-unreachable"
+  become: true
+  tags:
+    - single_node
+    - firewall
+    - security
+
+- name: Save firewall rules (single node)
+  ansible.builtin.shell: |
+    iptables-save > /etc/iptables/rules.v4
+  become: true
+  tags:
+    - single_node
+    - firewall
+
 - name: Display single node information
   ansible.builtin.debug:
     msg: |
       Single node Proxmox configuration complete.
-      - Web UI: https://{{ ansible_default_ipv4.address }}:8006
+      - Web UI: https://{{ ansible_default_ipv4.address }}:8006 (restricted access)
       - Storage configured for local use
       - Backup directory: /var/lib/vz/dump
       - No clustering enabled (single node)
+      - Firewall: Port 8006 restricted to private networks and allowed IPs
   tags:
     - single_node
     - info

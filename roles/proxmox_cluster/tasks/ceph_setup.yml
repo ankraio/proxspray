@@ -36,6 +36,19 @@
     - ceph_cluster
     - ceph_init
 
+- name: Configure Ceph for single node (disable safety checks)
+  ansible.builtin.shell: |
+    ceph config set global mon_allow_pool_size_one true
+    ceph config set global osd_crush_chooseleaf_type 0
+  when:
+    - groups['proxmox'] | length == 1
+    - not ceph_configured
+  become: true
+  ignore_errors: true
+  tags:
+    - ceph_cluster
+    - ceph_single_node
+
 - name: Create initial Ceph monitor on first node
   ansible.builtin.command:
     cmd: "pveceph mon create"
