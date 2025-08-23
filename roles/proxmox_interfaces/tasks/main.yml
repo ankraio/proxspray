@@ -209,11 +209,28 @@
   ansible.builtin.shell: iptables-save > /etc/iptables/rules.v4
   become: true
 
-- name: Save IPv6 iptables rules
   ansible.builtin.shell: ip6tables-save > /etc/iptables/rules.v6
   become: true
 
-- name: Enable netfilter-persistent
+# 7) Enable IPv4 forwarding (required for NAT)
+- name: Enable IPv4 forwarding at runtime
+  ansible.builtin.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    state: present
+    reload: yes
+  become: true
+
+- name: Ensure net.ipv4.ip_forward is set persistently
+  ansible.builtin.lineinfile:
+    path: /etc/sysctl.conf
+    regexp: '^net.ipv4.ip_forward'
+    line: 'net.ipv4.ip_forward = 1'
+    state: present
+    create: yes
+  become: true
+
+- name: Ensure netfilter-persistent service is enabled and started
   ansible.builtin.systemd:
     name: netfilter-persistent
     enabled: true

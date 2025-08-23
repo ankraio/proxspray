@@ -53,7 +53,7 @@
   ansible.builtin.debug:
     msg: "Terraform user creation: {{ 'Success' if terraform_user_result.status == 200 else 'User already exists' }}"
 
-- name: Set terraform user permissions (PVEAdmin on root path)
+- name: Set terraform user permissions (Administrator on root path)
   ansible.builtin.uri:
     url: "https://localhost:8006/api2/json/access/acl"
     method: PUT
@@ -62,7 +62,8 @@
     body:
       path: "/"
       users: "terraform@pve"
-      roles: "PVEAdmin"
+      roles: "Administrator"
+      propagate: "1"
     validate_certs: false
     status_code: [200]
     timeout: 30
@@ -145,19 +146,29 @@
   ansible.builtin.copy:
     content: |
       # Proxmox API Configuration for {{ inventory_hostname }}
-      PROXMOX_URL=https://localhost:8006/api2/json
-      PROXMOX_USER=terraform@pve
-      PROXMOX_TOKEN_ID=terraform-token
-      PROXMOX_TOKEN_SECRET={{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}
-      
-      # For Terraform
       export TF_VAR_proxmox_url="https://localhost:8006/api2/json"
+      export TF_VAR_proxmox_api_url="$TF_VAR_proxmox_url"
       export TF_VAR_proxmox_user="terraform@pve"
-      export TF_VAR_proxmox_token_id="terraform-token"
+      export TF_VAR_proxmox_token_id="terraform@pve!terraform-token"
       export TF_VAR_proxmox_token_secret="{{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}"
-      
-      # Full API token format (for direct API calls)
-      API_TOKEN="terraform@pve!terraform-token={{ terraform_api_token | default('TOKEN_ALREADY_EXISTS_OR_FAILED') }}"
+      export TF_VAR_cluster_name="{{ inventory_hostname_short }}"
+      export TF_VAR_environment="{{ inventory_hostname_short }}"
+
+      # Provider-specific variables (without TF_VAR_ prefix)
+      export proxmox_api_url="$TF_VAR_proxmox_api_url"
+      export proxmox_user="$TF_VAR_proxmox_user"
+      export proxmox_api_token_id="$TF_VAR_proxmox_token_id"
+      export proxmox_api_token_secret="$TF_VAR_proxmox_token_secret"
+
+      # Set environment variables for display
+      export ENVIRONMENT="$TF_VAR_environment"
+      export PROXMOX_API_URL="$TF_VAR_proxmox_api_url"
+
+
+      # Export the Terraform user password
+      # export terraform_user_password="{{ terraform_user_password | default('terraform123!') }}"
+
+      echo "🔧 Proxmox environment loaded: $ENVIRONMENT on $PROXMOX_API_URL"
     dest: "{{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}"
     mode: '0600'
   become: false
@@ -168,21 +179,21 @@
   ansible.builtin.debug:
     msg: |
       Terraform API token configuration saved to: {{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}
-      
+
       To use with Terraform, source the file:
       source {{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}
-      
+
       Or use the variables directly in your Terraform configuration.
   when: terraform_api_token is defined
 
 - name: Display failure message if token creation failed
   ansible.builtin.debug:
     msg: |
-      Failed to create or retrieve API token. 
+      Failed to create or retrieve API token.
       This might be because:
       1. The token already exists (delete it first if you need a new one)
       2. API authentication failed
       3. Insufficient permissions
-      
+
       Check the Proxmox web interface manually to verify.
   when: terraform_api_token is not defined
