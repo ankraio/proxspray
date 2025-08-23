@@ -1,8 +1,3 @@
-
-pve01.example.com ansible_host=192.168.1.101
-pve02.example.com ansible_host=192.168.1.102
-pve03.example.com ansible_host=192.168.1.103
-
 # ProxSpray 🚀
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
