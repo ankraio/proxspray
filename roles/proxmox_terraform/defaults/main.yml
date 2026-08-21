@@ -1,8 +1,10 @@
 ---
 # Default variables for proxmox_terraform role
 
-# Terraform user configuration
-terraform_user_password: "terraform123!"  # Change this to a secure password
+# Terraform user configuration.
+# No default on purpose: set a strong password in group_vars, host_vars,
+# vault, or --extra-vars. The role fails fast if it is missing.
+terraform_user_password: ""
 
 # Proxmox API configuration for authentication
 # These should be set in group_vars or host_vars

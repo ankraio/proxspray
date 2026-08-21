@@ -1,7 +1,7 @@
 ---
 - name: Download node_exporter binary
   ansible.builtin.get_url:
-    url: "https://github.com/prometheus/node_exporter/releases/download/v1.7.0/node_exporter-1.7.0.linux-amd64.tar.gz"
+    url: "{{ node_exporter_download_url }}"
     dest: /tmp/node_exporter.tar.gz
     mode: '0644'
   become: true
@@ -15,8 +15,8 @@
 
 - name: Copy node_exporter binary to /usr/local/bin
   ansible.builtin.copy:
-    src: /opt/node_exporter-1.7.0.linux-amd64/node_exporter
-    dest: /usr/local/bin/node_exporter
+    src: "/opt/node_exporter-{{ node_exporter_version }}.linux-amd64/node_exporter"
+    dest: "{{ node_exporter_bin_path }}"
     remote_src: yes
     mode: '0755'
   become: true
@@ -24,7 +24,7 @@
 - name: Create node_exporter systemd service
   ansible.builtin.template:
     src: node_exporter.service.j2
-    dest: /etc/systemd/system/node_exporter.service
+    dest: "{{ node_exporter_service_path }}"
     owner: root
     group: root
     mode: '0644'

@@ -90,7 +90,9 @@ proxmox_web_allowed_networks:
 # Proxmox API configuration for terraform user creation
 # You'll need to provide the root password for initial setup
 # proxmox_api_password: "YOUR_ROOT_PASSWORD_HERE"
-terraform_user_password: "terraform123!"  # Change this to a secure password
+# Required for the proxmox_terraform role — pick a strong password
+# (there is no default) and prefer keeping it in an Ansible vault:
+# terraform_user_password: "CHANGE_ME_TO_A_STRONG_PASSWORD"
 
 # Admin users configuration
 admin_users:
