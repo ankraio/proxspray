@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Ansible](https://img.shields.io/badge/Ansible-2.18%2B-red.svg)](https://ansible.com)
 [![Proxmox](https://img.shields.io/badge/Proxmox-VE%208%2B-orange.svg)](https://proxmox.com)
-[![Maintained by Ankra](https://img.shields.io/badge/Maintained%20by-Ankra-blue.svg)](https://ankra.io)
+[![Maintained by Ankra](https://img.shields.io/badge/Maintained%20by-Ankra-blue.svg)](https://ankra.ai)
 
 
 ## ✨ Features
@@ -229,7 +229,7 @@ proxspray/
 │   ├── security/             # System hardening
 │   └── ...                   # Additional service roles
 ├── playbook.yml              # Main deployment playbook
-├── production.yml            # Production-specific playbook
+├── setup-terraform-user.yml  # Standalone terraform user/token setup
 ├── requirements.txt          # Python dependencies
 └── README.md                 # This documentation
 ```
@@ -256,7 +256,7 @@ inventory/
     └── host_vars/
 ```
 
-## �️ Advanced Features
+## 🛠️ Advanced Features
 
 ### VLAN Network Segmentation
 - Automatic VLAN 4000 configuration for cluster communication
@@ -406,5 +406,5 @@ ansible all -i inventory -m shell -a "systemctl restart networking"
 
 ---
 
-**Maintained by**: [Ankra Infrastructure Team](https://ankra.io)
-**Last Updated**: August 2025
+**Maintained by**: [Ankra Infrastructure Team](https://ankra.ai)
+**Last Updated**: August 2026

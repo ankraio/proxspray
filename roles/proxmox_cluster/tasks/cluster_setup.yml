@@ -63,20 +63,10 @@
     - firewall
     - security
 
-# Insert misconfiguration fixes before status checks
-- name: Remove old clone IP from /etc/hosts
-  ansible.builtin.lineinfile:
-    path: /etc/hosts
-    regexp: '^172\\.16\\.20\\.101.*'
-    state: absent
-  become: true
-  tags:
-    - proxmox_cluster
-
 - name: Ensure proper hostname in /etc/hosts
   ansible.builtin.lineinfile:
     path: /etc/hosts
-    regexp: '^{{ ansible_default_ipv4.address }}\\s+'
+    regexp: '^{{ ansible_default_ipv4.address | regex_escape }}\s+'
     line: '{{ ansible_default_ipv4.address }} {{ inventory_hostname_short }} {{ inventory_hostname }}'
     state: present
   become: true
@@ -93,7 +83,7 @@
 - name: Ensure all cluster nodes are in /etc/hosts
   ansible.builtin.lineinfile:
     path: /etc/hosts
-    regexp: '^{{ hostvars[item].ansible_default_ipv4.address }}\\s+'
+    regexp: '^{{ hostvars[item].ansible_default_ipv4.address | regex_escape }}\s+'
     line: '{{ hostvars[item].ansible_default_ipv4.address }} {{ hostvars[item].inventory_hostname_short }} {{ hostvars[item].inventory_hostname }}'
     state: present
   become: true
@@ -293,22 +283,6 @@
     - cluster_create
 
 - name: Wait for Proxmox web interface after certificate update
-  ansible.builtin.wait_for:
-    port: 8006
-    host: "{{ ansible_default_ipv4.address }}"
-    timeout: 60
-    delay: 5
-  become: true
-  when:
-    - is_first_node
-    - not in_target_cluster
-  failed_when: false
-  tags:
-    - proxmox_cluster
-    - cluster_create
-
-- name: Check existing cluster status
-
   ansible.builtin.wait_for:
     port: 8006
     host: "{{ ansible_default_ipv4.address }}"

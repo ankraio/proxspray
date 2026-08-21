@@ -71,21 +71,20 @@
   become: true
   tags: security
 
-- name: Ensure fail2ban jail for SSH is enabled
-  ansible.builtin.lineinfile:
-    path: /etc/fail2ban/jail.local
-    regexp: '^\\[sshd\\]'
-    line: '[sshd]\nenabled = true'
-    create: yes
-  become: true
-  tags: security
+- name: Enable fail2ban sshd and recidive jails
+  ansible.builtin.copy:
+    dest: /etc/fail2ban/jail.local
+    content: |
+      # Managed by Ansible (proxspray security role)
+      [sshd]
+      enabled = true
 
-- name: Enable fail2ban recidive jail for repeat/portscan offenders
-  ansible.builtin.lineinfile:
-    path: /etc/fail2ban/jail.local
-    regexp: '^\[recidive\]'
-    line: '[recidive]\nenabled = true'
-    create: yes
+      # Repeat/portscan offenders
+      [recidive]
+      enabled = true
+    owner: root
+    group: root
+    mode: '0644'
   become: true
   tags: security
 
@@ -118,25 +117,6 @@
   ansible.builtin.systemd:
     name: fail2ban
     state: restarted
-  become: true
-  tags: security
-
-- name: Restrict HAProxy to only listen on required ports
-  ansible.builtin.lineinfile:
-    path: /etc/haproxy/haproxy.cfg
-    regexp: '^ *bind '
-    line: '    bind *:80
-    bind *:443'
-    state: present
-  become: true
-  tags: security
-
-- name: Ensure HAProxy runs as non-root user
-  ansible.builtin.lineinfile:
-    path: /etc/haproxy/haproxy.cfg
-    regexp: '^ *user '
-    line: '    user haproxy'
-    state: present
   become: true
   tags: security
 

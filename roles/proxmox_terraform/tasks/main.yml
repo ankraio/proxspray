@@ -1,4 +1,15 @@
 ---
+- name: Require a terraform user password to be set
+  ansible.builtin.assert:
+    that:
+      - terraform_user_password is defined
+      - terraform_user_password | length > 0
+    fail_msg: >-
+      terraform_user_password is not set. Choose a strong password and set it
+      in group_vars, a vault, or via
+      --extra-vars "terraform_user_password=...". This role no longer ships a
+      default password.
+
 - name: Get Proxmox authentication ticket
   ansible.builtin.uri:
     url: "https://localhost:8006/api2/json/access/ticket"
@@ -41,7 +52,7 @@
     body_format: form-urlencoded
     body:
       userid: "terraform@pve"
-      password: "{{ terraform_user_password | default('terraform123!') }}"
+      password: "{{ terraform_user_password }}"
       comment: "Terraform automation user"
     validate_certs: false
     status_code: [200, 500]  # 500 means user already exists
@@ -163,10 +174,6 @@
       # Set environment variables for display
       export ENVIRONMENT="$TF_VAR_environment"
       export PROXMOX_API_URL="$TF_VAR_proxmox_api_url"
-
-
-      # Export the Terraform user password
-      # export terraform_user_password="{{ terraform_user_password | default('terraform123!') }}"
 
       echo "🔧 Proxmox environment loaded: $ENVIRONMENT on $PROXMOX_API_URL"
     dest: "{{ lookup('env', 'HOME') }}/tmp/.proxmox-terraform/proxmox-{{ inventory_hostname_short }}"

@@ -41,11 +41,14 @@ tmp/
 .DS_Store
 Thumbs.db
 
-# Python cache files
+# Python cache files and virtual environments
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
+.venv
+.venv/
+venv/
 
 # Backup files
 *.bak
